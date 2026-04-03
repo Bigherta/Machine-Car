@@ -37,10 +37,14 @@ static int map_axis_to_speed(int axis) {
   long scaled = curved * MOTOR_SPEED_MAX / active_range;
   int speed = (int)scaled;
 
-  if (speed > 0 && speed < MOTOR_SPEED_MIN_EFFECTIVE) {
+  if (speed != 0 && speed < MOTOR_SPEED_MIN_EFFECTIVE) {
     speed = MOTOR_SPEED_MIN_EFFECTIVE;
   }
   return sign * speed;
+}
+
+static bool is_same_direction(int current, int target) {
+  return (current == 0) || (current > 0 && target > 0) || (current < 0 && target < 0);
 }
 
 static int approach_speed(int current, int target) {
@@ -48,7 +52,7 @@ static int approach_speed(int current, int target) {
   if (delta == 0) return current;
 
   int step = MOTOR_SLEW_DECEL_STEP;
-  bool same_direction = (current == 0) || (current > 0 && target > 0) || (current < 0 && target < 0);
+  bool same_direction = is_same_direction(current, target);
   if (same_direction && abs_int(target) > abs_int(current)) {
     step = MOTOR_SLEW_ACCEL_STEP;
   }
@@ -68,9 +72,6 @@ void loop_key(void) {
 
   motor1_speed = approach_speed(motor1_speed, target_motor1_speed);
   motor2_speed = approach_speed(motor2_speed, target_motor2_speed);
-
-  motor1_speed = clamp_motor_speed(motor1_speed);
-  motor2_speed = clamp_motor_speed(motor2_speed);
   motor1_SetSpeed(motor1_speed);
   motor2_SetSpeed(motor2_speed);
 }
