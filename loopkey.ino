@@ -14,12 +14,8 @@ static int clamp_motor_speed(int speed) {
   return speed;
 }
 
-static int abs_int(int value) {
-  return value >= 0 ? value : -value;
-}
-
 static int apply_deadzone(int value) {
-  if (abs_int(value) <= JOYSTICK_DEADZONE) return 0;
+  if (abs(value) <= JOYSTICK_DEADZONE) return 0;
   return value;
 }
 
@@ -28,7 +24,7 @@ static int map_axis_to_speed(int axis) {
   if (value == 0) return 0;
 
   int sign = value > 0 ? 1 : -1;
-  int magnitude = abs_int(value) - JOYSTICK_DEADZONE;
+  int magnitude = abs(value) - JOYSTICK_DEADZONE;
   const int active_range = JOYSTICK_MAX_ABS - JOYSTICK_DEADZONE;
   if (magnitude > active_range) magnitude = active_range;
 
@@ -37,13 +33,14 @@ static int map_axis_to_speed(int axis) {
   long scaled = quadratic_value * MOTOR_SPEED_MAX / active_range;
   int speed = (int)scaled;
 
+  // speed 在此处始终为非负量，方向在返回时由 sign 统一施加
   if (speed != 0 && speed < MOTOR_SPEED_MIN_EFFECTIVE) {
     speed = MOTOR_SPEED_MIN_EFFECTIVE;
   }
   return sign * speed;
 }
 
-static bool is_same_direction(int current, int target) {
+static bool is_same_nonzero_direction(int current, int target) {
   if (target == 0 || current == 0) return false;
   return (current > 0 && target > 0) || (current < 0 && target < 0);
 }
@@ -53,8 +50,8 @@ static int approach_speed(int current, int target) {
   if (delta == 0) return current;
 
   int step = MOTOR_SLEW_DECEL_STEP;
-  bool same_direction = is_same_direction(current, target);
-  if (same_direction && abs_int(target) > abs_int(current)) {
+  bool same_direction = is_same_nonzero_direction(current, target);
+  if (same_direction && abs(target) > abs(current)) {
     step = MOTOR_SLEW_ACCEL_STEP;
   }
 
