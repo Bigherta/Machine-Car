@@ -14,12 +14,14 @@
 #define motor1_n(x) analogWrite(5, x)
 #define motor2_p(x) analogWrite(6, x)
 #define motor2_n(x) analogWrite(9, x)
+
+// 初始化电机速度为0
 void setup_motor(void) {
 	motor1_speed = 0;
 	motor2_speed = 0;
 	motor1_SetSpeed(motor1_speed);
 	motor2_SetSpeed(motor2_speed);
-}  // 初始化电机速度为0
+}  
 /***********************************************
 	函数名称:		motor1_SetSpeed() 
 	功能介绍:		电机1速度控制
