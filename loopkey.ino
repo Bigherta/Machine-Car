@@ -33,8 +33,8 @@ static int map_axis_to_speed(int axis) {
   if (magnitude > active_range) magnitude = active_range;
 
   // 二次曲线：偏移越大，增幅越大
-  long curved = (long)magnitude * (long)magnitude / active_range;
-  long scaled = curved * MOTOR_SPEED_MAX / active_range;
+  long quadratic_value = (long)magnitude * (long)magnitude / active_range;
+  long scaled = quadratic_value * MOTOR_SPEED_MAX / active_range;
   int speed = (int)scaled;
 
   if (speed != 0 && speed < MOTOR_SPEED_MIN_EFFECTIVE) {
@@ -44,7 +44,8 @@ static int map_axis_to_speed(int axis) {
 }
 
 static bool is_same_direction(int current, int target) {
-  return (current == 0) || (current > 0 && target > 0) || (current < 0 && target < 0);
+  if (target == 0 || current == 0) return false;
+  return (current > 0 && target > 0) || (current < 0 && target < 0);
 }
 
 static int approach_speed(int current, int target) {
