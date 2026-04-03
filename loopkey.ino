@@ -1,7 +1,12 @@
 const int MOTOR_SPEED_MIN = -1000;
 const int MOTOR_SPEED_MAX = 1000;
 const int JOYSTICK_DEADZONE = 5;
-const int JOYSTICK_SCALE_DIV = 10;
+const int JOYSTICK_MAX_ABS = 128;
+const int MOTOR_SPEED_MIN_EFFECTIVE = 80;
+const int MOTOR_SLEW_ACCEL_STEP = 20;
+const int MOTOR_SLEW_DECEL_STEP = 50;
+const int STEERING_GAIN_NUM = 8;
+const int STEERING_GAIN_DEN = 10;
 
 static int clamp_motor_speed(int speed) {
   if (speed < MOTOR_SPEED_MIN) return MOTOR_SPEED_MIN;
@@ -9,61 +14,63 @@ static int clamp_motor_speed(int speed) {
   return speed;
 }
 
+static int abs_int(int value) {
+  return value >= 0 ? value : -value;
+}
+
 static int apply_deadzone(int value) {
-  if (std::abs(value) <= JOYSTICK_DEADZONE) return 0;
+  if (abs_int(value) <= JOYSTICK_DEADZONE) return 0;
   return value;
 }
 
+static int map_axis_to_speed(int axis) {
+  int value = apply_deadzone(axis);
+  if (value == 0) return 0;
+
+  int sign = value > 0 ? 1 : -1;
+  int magnitude = abs_int(value) - JOYSTICK_DEADZONE;
+  const int active_range = JOYSTICK_MAX_ABS - JOYSTICK_DEADZONE;
+  if (magnitude > active_range) magnitude = active_range;
+
+  // 二次曲线：偏移越大，增幅越大
+  long curved = (long)magnitude * (long)magnitude / active_range;
+  long scaled = curved * MOTOR_SPEED_MAX / active_range;
+  int speed = (int)scaled;
+
+  if (speed > 0 && speed < MOTOR_SPEED_MIN_EFFECTIVE) {
+    speed = MOTOR_SPEED_MIN_EFFECTIVE;
+  }
+  return sign * speed;
+}
+
+static int approach_speed(int current, int target) {
+  int delta = target - current;
+  if (delta == 0) return current;
+
+  int step = MOTOR_SLEW_DECEL_STEP;
+  bool same_direction = (current == 0) || (current > 0 && target > 0) || (current < 0 && target < 0);
+  if (same_direction && abs_int(target) > abs_int(current)) {
+    step = MOTOR_SLEW_ACCEL_STEP;
+  }
+
+  if (delta > step) return current + step;
+  if (delta < -step) return current - step;
+  return target;
+}
+
 void loop_key(void) {
-  int left_key_x = apply_deadzone(PS2_LEFT_X);
-  int left_key_y = apply_deadzone(PS2_LEFT_Y);
-  // 情况一：在原点，重置电机
-  if (left_key_x == 0 && left_key_y == 0) {
-    setup_motor();
-    return;
-  }
-  // 情况二：纵向为主（|x| < |y|），直行加减速
-  if (std::abs(left_key_x) < std::abs(left_key_y)) {
-    int extent_of_accelerate = std::abs(left_key_y) / JOYSTICK_SCALE_DIV;
-    // 向上推杆：前进加速
-    if (left_key_y > 0) {
-      motor1_speed += extent_of_accelerate;
-      motor1_speed = clamp_motor_speed(motor1_speed);
-      motor1_SetSpeed(motor1_speed);
-      motor2_speed += extent_of_accelerate;
-      motor2_speed = clamp_motor_speed(motor2_speed);
-      motor2_SetSpeed(motor2_speed);
-    }
-    // 向下推杆：后退加速
-    if (left_key_y < 0) {
-      motor1_speed -= extent_of_accelerate;
-      motor1_speed = clamp_motor_speed(motor1_speed);
-      motor1_SetSpeed(motor1_speed);
-      motor2_speed -= extent_of_accelerate;
-      motor2_speed = clamp_motor_speed(motor2_speed);
-      motor2_SetSpeed(motor2_speed);
-    }
-  }
-  // 情况三：横向为主（|x| >= |y|），转向
-  if (std::abs(left_key_x) >= std::abs(left_key_y)) {
-    int extent_of_turn = std::abs(left_key_x) / JOYSTICK_SCALE_DIV;
-    // 向左推杆：左转（motor1减速，motor2加速）
-    if (left_key_x < 0) {
-      motor1_speed -= extent_of_turn;
-      motor1_speed = clamp_motor_speed(motor1_speed);
-      motor1_SetSpeed(motor1_speed);
-      motor2_speed += extent_of_turn;
-      motor2_speed = clamp_motor_speed(motor2_speed);
-      motor2_SetSpeed(motor2_speed);
-    }
-    // 向右推杆：右转（motor1加速，motor2减速）
-    if (left_key_x > 0) {
-      motor1_speed += extent_of_turn;
-      motor1_speed = clamp_motor_speed(motor1_speed);
-      motor1_SetSpeed(motor1_speed);
-      motor2_speed -= extent_of_turn;
-      motor2_speed = clamp_motor_speed(motor2_speed);
-      motor2_SetSpeed(motor2_speed);
-    }
-  }
+  int throttle = map_axis_to_speed(PS2_LEFT_Y);
+  int steering = map_axis_to_speed(PS2_LEFT_X);
+  steering = steering * STEERING_GAIN_NUM / STEERING_GAIN_DEN;
+
+  int target_motor1_speed = clamp_motor_speed(throttle + steering);
+  int target_motor2_speed = clamp_motor_speed(throttle - steering);
+
+  motor1_speed = approach_speed(motor1_speed, target_motor1_speed);
+  motor2_speed = approach_speed(motor2_speed, target_motor2_speed);
+
+  motor1_speed = clamp_motor_speed(motor1_speed);
+  motor2_speed = clamp_motor_speed(motor2_speed);
+  motor1_SetSpeed(motor1_speed);
+  motor2_SetSpeed(motor2_speed);
 }
