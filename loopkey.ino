@@ -3,17 +3,20 @@ const int MOTOR_SPEED_MAX = 1000;
 const int JOYSTICK_DEADZONE = 5;
 const int JOYSTICK_SCALE_DIV = 10;
 
-int clamp_motor_speed(int speed) {
+static int clamp_motor_speed(int speed) {
   if (speed < MOTOR_SPEED_MIN) return MOTOR_SPEED_MIN;
   if (speed > MOTOR_SPEED_MAX) return MOTOR_SPEED_MAX;
   return speed;
 }
 
+static int apply_deadzone(int value) {
+  if (std::abs(value) <= JOYSTICK_DEADZONE) return 0;
+  return value;
+}
+
 void loop_key(void) {
-  int left_key_x = PS2_LEFT_X;
-  int left_key_y = PS2_LEFT_Y;
-  if (std::abs(left_key_x) <= JOYSTICK_DEADZONE) left_key_x = 0;
-  if (std::abs(left_key_y) <= JOYSTICK_DEADZONE) left_key_y = 0;
+  int left_key_x = apply_deadzone(PS2_LEFT_X);
+  int left_key_y = apply_deadzone(PS2_LEFT_Y);
   // 情况一：在原点，重置电机
   if (left_key_x == 0 && left_key_y == 0) {
     setup_motor();
