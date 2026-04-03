@@ -27,9 +27,8 @@ void setup_uart(void) {
 	返回值:			无
  ***********************************************/
 void setup_ps2(void) {
-	ps2.config_gamepad(PS2_CLK, PS2_CMD, PS2_ATT, PS2_DAT);
-	ps2.read_gamepad();
 	int init_status = ps2.config_gamepad(PS2_CLK, PS2_CMD, PS2_ATT, PS2_DAT); // 初始化
+	ps2.read_gamepad();
     switch (init_status) {
         case 0:
             uart_send_str("PS2控制器连接成功！\r\n");

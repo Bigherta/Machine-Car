@@ -37,7 +37,7 @@ void uart_send_byte(u8 dat) {
 	函数参数:		*s 发送的字符串
 	返回值:			无
  ***********************************************/
-void uart_send_str(char *s) {
+void uart_send_str(const char *s) {
 	while (*s) {
 		Serial.print(*s++);
 	}
