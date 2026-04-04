@@ -5,7 +5,6 @@
 static bool UartBusy = FALSE;
 u32 gSystemTickCount = 0;//系统从启动到现在的毫秒数
 uint16 ServoPwmDutyset[8] = {1500, 1500, 1500, 1500, 1500, 1500, 1500, 1500}; //PWM脉冲宽度
-uint8 BuzzerState = 0;
 //uint16 Ps2TimeCount = 0;
 uint16 keycount;
 uint8_t Mode = 0;
@@ -28,17 +27,6 @@ void InitTimer2(void)		//100us@12.000MHz
   sei();
 }
 
-void LedFlip()
-{
-  if (digitalRead(LED) == HIGH)
-  {
-    digitalWrite(LED, LOW);
-  }
-  else
-  {
-    digitalWrite(LED, HIGH);
-  }
-}
 
 uint16 GetADCResult(void)
 {
@@ -64,105 +52,15 @@ uint16 GetBatteryVoltage(void)
   return BatteryVoltage;
 }
 
-void Buzzer(void)
-{ //放到100us的定时中断里面
-  static bool fBuzzer = FALSE;
-  static uint32 t1 = 0;
-  static uint32 t2 = 0;
-  if (fBuzzer)
-  {
-    t1++;
-    if (t1 <= 2)
-    {
-      digitalWrite(BUZZER, LOW);//2.5KHz
-    }
-    else if (t1 <= 4)
-    {
-      digitalWrite(BUZZER, HIGH);//2.5KHz
-    }
-    if (t1 == 4)
-    {
-      t1 = 0;
-    }
-  }
-
-  if (BuzzerState == 0)
-  {
-    fBuzzer = FALSE;
-    t2 = 0;
-  }
-  else if (BuzzerState == 1)
-  {
-    t2++;
-    if (t2 < 5000)
-    {
-      fBuzzer = TRUE;
-    }
-    else if (t2 < 10000)
-    {
-      fBuzzer = FALSE;
-    }
-    else
-    {
-      t2 = 0;
-    }
-  }
-}
-
-
-bool manual = FALSE;
 ISR(TIMER2_OVF_vect)
 {
   TCNT2 = 206; //定时器3中断  100us
 
   static uint16 time = 0;
-  static uint16 timeBattery = 0;
-  static uint16 mytime = 0;
-  Buzzer();
   if (++time >= 10)
   {
     time = 0;
     gSystemTickCount++;
-    //		Ps2TimeCount++;
-    if (GetBatteryVoltage() < 6600) //小于6.6V报警
-    {
-      timeBattery++;
-      if (timeBattery > 5000) //持续5秒
-      {
-        BuzzerState = 1;
-      }
-    }
-    else
-    {
-      timeBattery = 0;
-      if (manual == TRUE)
-      {
-        BuzzerState  = 1;
-        mytime++;
-        if (mytime > 80 && mytime < 130)
-        {
-          manual = FALSE;
-        }
-        if (mytime >= 210)
-        {
-          mytime = 0;
-          manual = FALSE;
-        }
-      } else
-      {
-        if (mytime != 0)
-        {
-          mytime++;
-          if (mytime >= 130 && mytime < 210)
-          {
-            manual = TRUE;
-            BuzzerState   = 1;
-            return;
-          }
-        }
-        BuzzerState = 0;
-      }
-    }
   }
 }
 
@@ -196,9 +94,7 @@ void ps2Handle() {                      //PS2 手柄 处理
       if ( ps2X.ButtonPressed( PSB_START ))
       {
         Mode = 0;
-        manual = TRUE;
         FullActRun(0, 1);
-        LedFlip();
         for (int i = 0 ; i < 8 ; i++)
         {
           ServoPwmDutyset[i] = 1500;
@@ -214,79 +110,66 @@ void ps2Handle() {                      //PS2 手柄 处理
     }
     else {
       if (ps2X.ButtonPressed(PSB_START)) { //如果左侧向上按钮被按下�
-        LedFlip();
         FullActRun(0, 1);
         Timer = millis() + 50;               //Timer 在 运行总毫秒数上加 50ms，50ms 后再次运行�
         return;       //返回，退出此函数
       }
       if (ps2X.ButtonPressed(PSB_PAD_UP)) { //如果左侧向上按钮被按下�
-        LedFlip();
         FullActRun(1, 1);
         Timer = millis() + 50;
         return;
       }
       if (ps2X.ButtonPressed(PSB_PAD_DOWN)) {  //如果左侧向下按钮被按下
-        LedFlip();
         FullActRun(2, 1);
         Timer = millis() + 50;
         return;
       }
       if (ps2X.ButtonPressed(PSB_PAD_LEFT)) {  //如果左侧向左按钮被按下�
-        LedFlip();
         FullActRun(3, 1);
         Timer = millis() + 50;
         return;
       }
       if (ps2X.ButtonPressed(PSB_PAD_RIGHT)) { //如果左侧向右按钮被按下�
-        LedFlip();
         FullActRun(4, 1);
         Timer = millis() + 50;
         return;
       }
       if (ps2X.ButtonPressed(PSB_GREEN)) {     //如果右侧绿色按钮（即右侧三角形按钮）被按下�
-        LedFlip();
         FullActRun(5, 1);
         Timer = millis() + 50;
         return;
       }
       if (ps2X.ButtonPressed(PSB_BLUE)) {       //如果右侧蓝色按钮（即右侧交叉按钮）被按下
-        LedFlip();
         FullActRun(6, 1);
         Timer = millis() + 50;
         return;
       }
       if (ps2X.ButtonPressed(PSB_PINK)) {       //如果右侧粉红色按钮（即右侧正方形按钮）被按下
-        LedFlip();
         FullActRun(7, 1);
         Timer = millis() + 50;
         return;
       }
       if (ps2X.ButtonPressed(PSB_RED)) {       //如果右侧粉红色按钮（即右侧正方形按钮）被按下
-        LedFlip();
         FullActRun(8, 1);
         Timer = millis() + 50;
         return;
       }
       if (ps2X.ButtonPressed(PSB_L1)) {        //如果左侧L1按钮被按下
-        LedFlip();
         FullActRun(9, 1);
         Timer = millis() + 50;
         return;
       }
       if (ps2X.ButtonPressed(PSB_R1)) {        //如果左侧L2按钮被按下�
-        LedFlip();
         FullActRun(10, 1);
         Timer = millis() + 50;
         return;
       }
       if (ps2X.ButtonPressed(PSB_L2)) {       //如果右侧R1按钮被按下
-        LedFlip();
         FullActRun(11, 1);
         Timer = millis() + 50;
         return;
       }
       if (ps2X.ButtonPressed(PSB_R2)) {          //如果右侧R2按钮被按下
-        LedFlip();
         FullActRun(12, 1);
         Timer = millis() + 50;
         return;
@@ -302,8 +185,6 @@ void ps2Handle() {                      //PS2 手柄 处理
       if ( ps2X.ButtonPressed( PSB_START ))
       {
         Mode = 1;
-        manual = TRUE;
-        LedFlip();
         return;
       }
     }
@@ -438,7 +319,6 @@ void ps2Handle() {                      //PS2 手柄 处理
 //        ServoSetPluseAndTime( 5, ServoPwmDutyset[5], 60 );
 //      }
       if (ps2X.ButtonPressed(PSB_START)) { //如果START按钮被按下�
-        LedFlip();
         for (int i = 0 ; i < 8 ; i++)
         {
           ServoPwmDutyset[i] = 1500;

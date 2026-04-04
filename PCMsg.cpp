@@ -148,16 +148,6 @@ void TaskPCMsgHandle(void)
 	uint8 fullActNum;
 	if(UartRxOK())
 	{
-//		LED = !LED;
-		if(digitalRead(LED) == HIGH)
-		{
-			digitalWrite(LED, LOW);
-		}
-		else
-		{
-			digitalWrite(LED, HIGH);
-		}
-		
 		cmd = UartRxBuffer[3];
  		switch(cmd)
  		{
