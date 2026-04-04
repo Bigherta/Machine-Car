@@ -70,7 +70,7 @@ void loop_key(void) {
   vy = vy * STRAFE_GAIN_NUM / STRAFE_GAIN_DEN;
   wz = wz * ROTATE_GAIN_NUM / ROTATE_GAIN_DEN;
 
-  // 麦轮解算约定：
+  // 麦克纳姆轮解算约定：
   // motor1=前左(FL), motor2=前右(FR), motor3=后左(RL), motor4=后右(RR)。
   // 若实车方向与预期不一致，请按接线/电机极性调整电机映射或对应轮符号。
   long target_motor1_speed = (long)vx + (long)vy + (long)wz;  // front-left
@@ -82,7 +82,7 @@ void loop_key(void) {
   if (abs(target_motor2_speed) > max_abs) max_abs = abs(target_motor2_speed);
   if (abs(target_motor3_speed) > max_abs) max_abs = abs(target_motor3_speed);
   if (abs(target_motor4_speed) > max_abs) max_abs = abs(target_motor4_speed);
-  if (max_abs > MOTOR_SPEED_MAX) {
+  if (max_abs > 0 && max_abs > MOTOR_SPEED_MAX) {
     target_motor1_speed = target_motor1_speed * MOTOR_SPEED_MAX / max_abs;
     target_motor2_speed = target_motor2_speed * MOTOR_SPEED_MAX / max_abs;
     target_motor3_speed = target_motor3_speed * MOTOR_SPEED_MAX / max_abs;
