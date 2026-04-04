@@ -92,6 +92,7 @@ void setup(void) {  //ZL
 }
 void loop(void) {
 #if ENABLE_MOTOR_FORCE_TEST
+	// 强制转动自检：速度值沿用 motor*_SetSpeed 的输入范围（约 -1000~1000）
 	motor1_SetSpeed(500);
 	motor2_SetSpeed(500);
 	delay(2000);
