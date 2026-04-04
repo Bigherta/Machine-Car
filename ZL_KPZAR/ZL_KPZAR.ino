@@ -14,7 +14,7 @@
 /*******全局变量宏定义*******/
 #define UART_RECEIVE_BUF_SIZE 100
 #define ENABLE_KEY_INIT 0          // 0: 关闭按键初始化，避免占用 D6
-#define ENABLE_MOTOR_FORCE_TEST 0  // 1: 启用电机强制转动自检模式
+#define ENABLE_MOTOR_FORCE_TEST 1  // 1: 启用电机强制转动自检模式
 
 /*******PS2管脚映射表*******/
 #define PS2_DAT 12
