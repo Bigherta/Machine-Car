@@ -7,6 +7,7 @@ const int MOTOR_SLEW_ACCEL_STEP = 20;
 const int MOTOR_SLEW_DECEL_STEP = 50;
 const int STEERING_GAIN_NUM = 8;
 const int STEERING_GAIN_DEN = 10;
+const int ENABLE_LOOPKEY_DEBUG_PRINT = 0;
 
 static int clamp_motor_speed(int speed) {
   if (speed < MOTOR_SPEED_MIN) return MOTOR_SPEED_MIN;
@@ -72,4 +73,15 @@ void loop_key(void) {
   motor2_speed = approach_speed(motor2_speed, target_motor2_speed);
   motor1_SetSpeed(motor1_speed);
   motor2_SetSpeed(motor2_speed);
+
+  if (ENABLE_LOOPKEY_DEBUG_PRINT) {
+    Serial.print("LX=");
+    Serial.print(PS2_LEFT_X);
+    Serial.print("  LY=");
+    Serial.print(PS2_LEFT_Y);
+    Serial.print("  M1=");
+    Serial.print(motor1_speed);
+    Serial.print("  M2=");
+    Serial.println(motor2_speed);
+  }
 }
