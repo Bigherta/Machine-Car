@@ -32,13 +32,13 @@ void loop_key(void) {
     return;
   }
 
-  unsigned long stage = (millis() / DIRECT_MOTOR_TEST_STAGE_MS) % 4;
+  unsigned long motor_test_phase = (millis() / DIRECT_MOTOR_TEST_STAGE_MS) % 4;
   int target_motor1_speed = 0;
   int target_motor2_speed = 0;
-  if (stage == 0) {
+  if (motor_test_phase == 0) {
     target_motor1_speed = DIRECT_MOTOR_TEST_SPEED;
     target_motor2_speed = DIRECT_MOTOR_TEST_SPEED;
-  } else if (stage == 2) {
+  } else if (motor_test_phase == 2) {
     target_motor1_speed = -DIRECT_MOTOR_TEST_SPEED;
     target_motor2_speed = -DIRECT_MOTOR_TEST_SPEED;
   }
