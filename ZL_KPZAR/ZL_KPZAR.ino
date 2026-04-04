@@ -68,7 +68,7 @@
 
 /*******全局变量定义*******/
 u8 i = 0;
-int motor1_speed = 0, motor2_speed = 0;
+int motor1_speed = 0, motor2_speed = 0, motor3_speed = 0, motor4_speed = 0;
 u8 uart_receive_buf[UART_RECEIVE_BUF_SIZE] = { 0 }, uart_receive_buf_index, uart_get_ok;
 u8 ps2_mode = 0;
 PS2X ps2;

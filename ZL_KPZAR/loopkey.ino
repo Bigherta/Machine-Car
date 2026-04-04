@@ -7,6 +7,10 @@ const int MOTOR_SLEW_ACCEL_STEP = 20;
 const int MOTOR_SLEW_DECEL_STEP = 50;
 const int STEERING_GAIN_NUM = 8;
 const int STEERING_GAIN_DEN = 10;
+const int STRAFE_GAIN_NUM = 10;
+const int STRAFE_GAIN_DEN = 10;
+const int ROTATE_GAIN_NUM = 7;
+const int ROTATE_GAIN_DEN = 10;
 
 static int clamp_motor_speed(int speed) {
   if (speed < MOTOR_SPEED_MIN) return MOTOR_SPEED_MIN;
@@ -61,15 +65,36 @@ static int approach_speed(int current, int target) {
 }
 
 void loop_key(void) {
-  int throttle = map_axis_to_speed(PS2_LEFT_Y);
-  int steering = map_axis_to_speed(PS2_LEFT_X);
-  steering = steering * STEERING_GAIN_NUM / STEERING_GAIN_DEN;
+  int vx = map_axis_to_speed(PS2_LEFT_Y);
+  int vy = map_axis_to_speed(PS2_LEFT_X);
+  int wz = map_axis_to_speed(PS2_RIGHT_X);
 
-  int target_motor1_speed = clamp_motor_speed(throttle + steering);
-  int target_motor2_speed = clamp_motor_speed(throttle - steering);
+  vy = vy * STRAFE_GAIN_NUM / STRAFE_GAIN_DEN;
+  wz = wz * ROTATE_GAIN_NUM / ROTATE_GAIN_DEN;
+  wz = wz * STEERING_GAIN_NUM / STEERING_GAIN_DEN;
 
-  motor1_speed = approach_speed(motor1_speed, target_motor1_speed);
-  motor2_speed = approach_speed(motor2_speed, target_motor2_speed);
+  long target_motor1_speed = (long)vx + (long)vy + (long)wz;  // front-left
+  long target_motor2_speed = (long)vx - (long)vy - (long)wz;  // front-right
+  long target_motor3_speed = (long)vx - (long)vy + (long)wz;  // rear-left
+  long target_motor4_speed = (long)vx + (long)vy - (long)wz;  // rear-right
+
+  long max_abs = abs(target_motor1_speed);
+  if (abs(target_motor2_speed) > max_abs) max_abs = abs(target_motor2_speed);
+  if (abs(target_motor3_speed) > max_abs) max_abs = abs(target_motor3_speed);
+  if (abs(target_motor4_speed) > max_abs) max_abs = abs(target_motor4_speed);
+  if (max_abs > MOTOR_SPEED_MAX) {
+    target_motor1_speed = target_motor1_speed * MOTOR_SPEED_MAX / max_abs;
+    target_motor2_speed = target_motor2_speed * MOTOR_SPEED_MAX / max_abs;
+    target_motor3_speed = target_motor3_speed * MOTOR_SPEED_MAX / max_abs;
+    target_motor4_speed = target_motor4_speed * MOTOR_SPEED_MAX / max_abs;
+  }
+
+  motor1_speed = approach_speed(motor1_speed, clamp_motor_speed((int)target_motor1_speed));
+  motor2_speed = approach_speed(motor2_speed, clamp_motor_speed((int)target_motor2_speed));
+  motor3_speed = approach_speed(motor3_speed, clamp_motor_speed((int)target_motor3_speed));
+  motor4_speed = approach_speed(motor4_speed, clamp_motor_speed((int)target_motor4_speed));
   motor1_SetSpeed(motor1_speed);
   motor2_SetSpeed(motor2_speed);
+  motor3_SetSpeed(motor3_speed);
+  motor4_SetSpeed(motor4_speed);
 }
