@@ -18,7 +18,7 @@
 	返回值:			无
  ***********************************************/
 void uart_init(u32 baud) {
-	Serial.begin(baud);		//初始化波特率为baud
+	Serial.begin(baud);  //初始化波特率为baud
 }
 
 /***********************************************
@@ -49,6 +49,6 @@ void uart_send_str(const char *s) {
 	函数参数:		tmp 发送的数字
 	返回值:			无
  ***********************************************/
-void uart_send_int(int tmp){
+void uart_send_int(int tmp) {
 	Serial.print(tmp);
 }

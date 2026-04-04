@@ -78,7 +78,7 @@ int origin_left_y;
 int origin_right_y;
 void setup(void) {  //ZL
 	setup_motor();
-	setup_uart();     //初始化串口
+	setup_uart();  //初始化串口
 	setup_ps2();
 	key_init();  //初始化ps2
 	origin_left_x = PS2_LEFT_X;

@@ -9,12 +9,12 @@
  ****************************************************************************/
 
 /*******按键管脚映射表*******/
-#define KEY1_PIN			006
-#define KEY2_PIN			007
+#define KEY1_PIN 006
+#define KEY2_PIN 007
 
 /*******按键快捷指令表*******/
-#define KEY1	 digitalRead(KEY1_PIN)			//读取按键1状态
-#define KEY2	 digitalRead(KEY2_PIN)			//读取按键2状态
+#define KEY1 digitalRead(KEY1_PIN)  //读取按键1状态
+#define KEY2 digitalRead(KEY2_PIN)  //读取按键2状态
 
 /***********************************************
 	函数名称:		key_init() 
@@ -23,6 +23,6 @@
 	返回值:			无
  ***********************************************/
 void key_init(void) {
-	pinMode(KEY1_PIN,INPUT_PULLUP);					//设置引脚为输入模式
-	pinMode(KEY2_PIN,INPUT_PULLUP);					//设置引脚为输入模式
+	pinMode(KEY1_PIN, INPUT_PULLUP);  //设置引脚为输入模式
+	pinMode(KEY2_PIN, INPUT_PULLUP);  //设置引脚为输入模式
 }

@@ -21,7 +21,7 @@ void setup_motor(void) {
 	motor2_speed = 0;
 	motor1_SetSpeed(motor1_speed);
 	motor2_SetSpeed(motor2_speed);
-}  
+}
 /***********************************************
 	函数名称:		motor1_SetSpeed() 
 	功能介绍:		电机1速度控制

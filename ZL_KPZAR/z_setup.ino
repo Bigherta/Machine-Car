@@ -27,23 +27,24 @@ void setup_uart(void) {
 	返回值:			无
  ***********************************************/
 void setup_ps2(void) {
-	int init_status = ps2.config_gamepad(PS2_CLK, PS2_CMD, PS2_ATT, PS2_DAT); // 初始化
+	ps2.config_gamepad(PS2_CLK, PS2_CMD, PS2_ATT, PS2_DAT);
 	ps2.read_gamepad();
+	int init_status = ps2.config_gamepad(PS2_CLK, PS2_CMD, PS2_ATT, PS2_DAT); // 初始化
     switch (init_status) {
         case 0:
-            uart_send_str("PS2控制器连接成功！\r\n");
+            uart_send_str("PS2 controller connected successfully!\r\n");
             break;
         case 1:
-            uart_send_str("错误：未检测到PS2控制器！\r\n");
+            uart_send_str("Error: No PS2 controller detected!\r\n");
             break;
         case 2:
-            uart_send_str("错误：PS2通讯失败（引脚/线路问题）！\r\n");
+            uart_send_str("Error: PS2 communication failed (pin/wiring issue)!\r\n");
             break;
         case 3:
-            uart_send_str("错误：控制器类型不兼容（非DualShock）！\r\n");
+            uart_send_str("Error: Incompatible controller type (not DualShock)!\r\n");
             break;
         default:
-            uart_send_str("未知错误！\r\n");
+            uart_send_str("Unknown error!\r\n");
             break;
     }
 }
