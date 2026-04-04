@@ -8,7 +8,7 @@ A machine car control coding repository.
 - 左摇杆 Y 轴映射为前后速度（`vx`）。
 - 左摇杆 X 轴映射为横移速度（`vy`）。
 - 右摇杆 X 轴映射为自旋角速度（`wz`）。
-- 麦克纳木四轮目标速度混控：
+- 麦克纳姆四轮目标速度混控：
   - 前左轮：`vx + vy + wz`
   - 前右轮：`vx - vy - wz`
   - 后左轮：`vx - vy + wz`
