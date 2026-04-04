@@ -17,10 +17,15 @@
 
 // 初始化电机速度为0
 void setup_motor(void) {
-	motor1_speed = 0;
-	motor2_speed = 0;
-	motor1_SetSpeed(motor1_speed);
-	motor2_SetSpeed(motor2_speed);
+    pinMode(3, OUTPUT);
+    pinMode(5, OUTPUT);
+    pinMode(6, OUTPUT);
+    pinMode(9, OUTPUT);
+
+    motor1_speed = 0;
+    motor2_speed = 0;
+    motor1_SetSpeed(motor1_speed);
+    motor2_SetSpeed(motor2_speed);
 }
 /***********************************************
 	函数名称:		motor1_SetSpeed() 
