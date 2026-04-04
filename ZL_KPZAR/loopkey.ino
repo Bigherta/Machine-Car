@@ -41,6 +41,8 @@ void loop_key(void) {
   } else if (motor_test_phase == 2) {
     target_motor1_speed = -DIRECT_MOTOR_TEST_SPEED;
     target_motor2_speed = -DIRECT_MOTOR_TEST_SPEED;
+  } else {
+    // phase 1 and 3 are intentional stop phases (both targets stay 0)
   }
 
   motor1_speed = approach_speed(motor1_speed, target_motor1_speed);
