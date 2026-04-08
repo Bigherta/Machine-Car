@@ -63,10 +63,16 @@
 #define PS2_R_LEFT_1 ps2.ButtonReleased(PSB_L1)
 #define PS2_R_RIGHT_1 ps2.ButtonReleased(PSB_R1)
 
-#define PS2_RIGHT_X (int)(ps2.Analog(PSS_RX) - 0x7f)
-#define PS2_RIGHT_Y (int)(ps2.Analog(PSS_RY) - 0x80)
-#define PS2_LEFT_X (int)(ps2.Analog(PSS_LX) - 0x7f)
-#define PS2_LEFT_Y (int)(ps2.Analog(PSS_LY) - 0x80)
+#define PS2_RIGHT_X_RAW (int)(ps2.Analog(PSS_RX))
+#define PS2_RIGHT_Y_RAW (int)(ps2.Analog(PSS_RY))
+#define PS2_LEFT_X_RAW (int)(ps2.Analog(PSS_LX))
+#define PS2_LEFT_Y_RAW (int)(ps2.Analog(PSS_LY))
+
+// 开机时记录零点，运行时用相对值，避免固定偏置导致某轴近似不变。
+#define PS2_RIGHT_X (PS2_RIGHT_X_RAW - origin_right_x)
+#define PS2_RIGHT_Y (PS2_RIGHT_Y_RAW - origin_right_y)
+#define PS2_LEFT_X (PS2_LEFT_X_RAW - origin_left_x)
+#define PS2_LEFT_Y (PS2_LEFT_Y_RAW - origin_left_y)
 
 /*******全局变量定义*******/
 u8 i = 0;
@@ -85,10 +91,10 @@ void setup(void) {  //ZL
 #if ENABLE_KEY_INIT
 	key_init();  //初始化按键
 #endif
-	origin_left_x = PS2_LEFT_X;
-	origin_right_x = PS2_RIGHT_X;
-	origin_left_y = PS2_LEFT_Y;
-	origin_right_y = PS2_RIGHT_Y;
+	origin_left_x = PS2_LEFT_X_RAW;
+	origin_right_x = PS2_RIGHT_X_RAW;
+	origin_left_y = PS2_LEFT_Y_RAW;
+	origin_right_y = PS2_RIGHT_Y_RAW;
 }
 void loop(void) {
 #if ENABLE_MOTOR_FORCE_TEST

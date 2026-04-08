@@ -20,8 +20,14 @@
 #define BUS_PWM_MIN_OFFSET    200
 #define BUS_PWM_MAX_OFFSET    900
 
-static int last_left_speed_cmd  = 12345;
-static int last_right_speed_cmd = 12345;
+const int SPEED_CMD_INVALID = 12345;
+
+static int last_left_speed_cmd  = SPEED_CMD_INVALID;
+static int last_right_speed_cmd = SPEED_CMD_INVALID;
+static int last_left_front_speed_cmd  = SPEED_CMD_INVALID;
+static int last_right_front_speed_cmd = SPEED_CMD_INVALID;
+static int last_left_rear_speed_cmd   = SPEED_CMD_INVALID;
+static int last_right_rear_speed_cmd  = SPEED_CMD_INVALID;
 
 /***********************************************
   函数名称: motor_bus_clamp_speed()
@@ -85,34 +91,52 @@ static void set_one_bus_motor(u8 id, int speed, int dir_sign) {
 void setup_motor(void) {
   motor1_speed = 0;
   motor2_speed = 0;
-  last_left_speed_cmd  = 12345;
-  last_right_speed_cmd = 12345;
+  last_left_speed_cmd  = SPEED_CMD_INVALID;
+  last_right_speed_cmd = SPEED_CMD_INVALID;
+  last_left_front_speed_cmd  = SPEED_CMD_INVALID;
+  last_right_front_speed_cmd = SPEED_CMD_INVALID;
+  last_left_rear_speed_cmd   = SPEED_CMD_INVALID;
+  last_right_rear_speed_cmd  = SPEED_CMD_INVALID;
 }
 
 /***********************************************
-  函数名称: motor1_SetSpeed()
-  功能介绍: 控制左侧两轮
+  函数名称: motor4_SetSpeed()
+  功能介绍: 控制四个轮子（麦克纳姆）
  ***********************************************/
-void motor1_SetSpeed(int Speed) {
-  Speed = motor_bus_clamp_speed(Speed);
+void motor4_SetSpeed(int left_front_speed, int right_front_speed, int left_rear_speed, int right_rear_speed) {
+  left_front_speed  = motor_bus_clamp_speed(left_front_speed);
+  right_front_speed = motor_bus_clamp_speed(right_front_speed);
+  left_rear_speed   = motor_bus_clamp_speed(left_rear_speed);
+  right_rear_speed  = motor_bus_clamp_speed(right_rear_speed);
 
-  if (Speed == last_left_speed_cmd) return;
-  last_left_speed_cmd = Speed;
+  if (left_front_speed != last_left_front_speed_cmd) {
+    last_left_front_speed_cmd = left_front_speed;
+    set_one_bus_motor(LEFT_FRONT_ID, left_front_speed, LEFT_SIDE_DIR);
+  }
+  if (right_front_speed != last_right_front_speed_cmd) {
+    last_right_front_speed_cmd = right_front_speed;
+    set_one_bus_motor(RIGHT_FRONT_ID, right_front_speed, RIGHT_SIDE_DIR);
+  }
+  if (left_rear_speed != last_left_rear_speed_cmd) {
+    last_left_rear_speed_cmd = left_rear_speed;
+    set_one_bus_motor(LEFT_REAR_ID, left_rear_speed, LEFT_SIDE_DIR);
+  }
+  if (right_rear_speed != last_right_rear_speed_cmd) {
+    last_right_rear_speed_cmd = right_rear_speed;
+    set_one_bus_motor(RIGHT_REAR_ID, right_rear_speed, RIGHT_SIDE_DIR);
+  }
 
-  set_one_bus_motor(LEFT_FRONT_ID, Speed, LEFT_SIDE_DIR);
-  set_one_bus_motor(LEFT_REAR_ID,  Speed, LEFT_SIDE_DIR);
-}
+  if (left_front_speed == left_rear_speed) {
+    last_left_speed_cmd = left_front_speed;
+  } else {
+    // 四轮混控下左右同侧不等速时，标记 legacy 双侧缓存无效，
+    // 让后续 motor1/2 调用按当前值重新下发。
+    last_left_speed_cmd = SPEED_CMD_INVALID;
+  }
 
-/***********************************************
-  函数名称: motor2_SetSpeed()
-  功能介绍: 控制右侧两轮
- ***********************************************/
-void motor2_SetSpeed(int Speed) {
-  Speed = motor_bus_clamp_speed(Speed);
-
-  if (Speed == last_right_speed_cmd) return;
-  last_right_speed_cmd = Speed;
-
-  set_one_bus_motor(RIGHT_FRONT_ID, Speed, RIGHT_SIDE_DIR);
-  set_one_bus_motor(RIGHT_REAR_ID,  Speed, RIGHT_SIDE_DIR);
+  if (right_front_speed == right_rear_speed) {
+    last_right_speed_cmd = right_front_speed;
+  } else {
+    last_right_speed_cmd = SPEED_CMD_INVALID;
+  }
 }
