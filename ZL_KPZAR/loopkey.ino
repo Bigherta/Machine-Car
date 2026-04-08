@@ -17,11 +17,6 @@ const int WZ_GAIN_DEN = 10;
 
 extern bool g_ps2_link_ok;
 
-static int wheel_fl_speed = 0;
-static int wheel_fr_speed = 0;
-static int wheel_rl_speed = 0;
-static int wheel_rr_speed = 0;
-
 static int clamp_motor_speed(int speed) {
   if (speed < MOTOR_SPEED_MIN) return MOTOR_SPEED_MIN;
   if (speed > MOTOR_SPEED_MAX) return MOTOR_SPEED_MAX;
@@ -93,6 +88,11 @@ static void normalize_mecanum_targets(int *fl, int *fr, int *rl, int *rr) {
 }
 
 void loop_key(void) {
+  static int wheel_fl_speed = 0;
+  static int wheel_fr_speed = 0;
+  static int wheel_rl_speed = 0;
+  static int wheel_rr_speed = 0;
+
   if (!g_ps2_link_ok) {
     wheel_fl_speed = 0;
     wheel_fr_speed = 0;

@@ -14,6 +14,11 @@ void loop_ps2(void) {
   static u32 systick_ms_bak = 0;
   u32 now_ms = millis();
 
+  if (ps2_mode != 0) {
+    g_ps2_link_ok = false;
+    return;
+  }
+
   if (now_ms - systick_ms_bak >= 20) {
     systick_ms_bak = now_ms;
     ps2.read_gamepad();
@@ -22,11 +27,6 @@ void loop_ps2(void) {
       g_ps2_link_ok = true;
       g_ps2_last_ok_ms = now_ms;
     }
-  }
-
-  if (ps2_mode != 0) {
-    g_ps2_link_ok = false;
-    return;
   }
 
   if (now_ms - g_ps2_last_ok_ms > PS2_COMM_TIMEOUT_MS) {
