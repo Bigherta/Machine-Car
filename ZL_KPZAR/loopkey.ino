@@ -74,10 +74,10 @@ static void normalize_mecanum_targets(int *fl, int *fr, int *rl, int *rr) {
   if (max_abs_target == 0) return;
   if (max_abs_target <= MOTOR_SPEED_MAX) return;
 
-  *fl = (long)(*fl) * MOTOR_SPEED_MAX / max_abs_target;
-  *fr = (long)(*fr) * MOTOR_SPEED_MAX / max_abs_target;
-  *rl = (long)(*rl) * MOTOR_SPEED_MAX / max_abs_target;
-  *rr = (long)(*rr) * MOTOR_SPEED_MAX / max_abs_target;
+  *fl = ((long)(*fl) * MOTOR_SPEED_MAX) / max_abs_target;
+  *fr = ((long)(*fr) * MOTOR_SPEED_MAX) / max_abs_target;
+  *rl = ((long)(*rl) * MOTOR_SPEED_MAX) / max_abs_target;
+  *rr = ((long)(*rr) * MOTOR_SPEED_MAX) / max_abs_target;
 }
 
 void loop_key(void) {

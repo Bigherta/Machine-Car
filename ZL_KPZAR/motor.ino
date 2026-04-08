@@ -123,6 +123,18 @@ void motor4_SetSpeed(int left_front_speed, int right_front_speed, int left_rear_
     last_right_rear_speed_cmd = right_rear_speed;
     set_one_bus_motor(RIGHT_REAR_ID, right_rear_speed, RIGHT_SIDE_DIR);
   }
+
+  if (left_front_speed == left_rear_speed) {
+    last_left_speed_cmd = left_front_speed;
+  } else {
+    last_left_speed_cmd = 12345;
+  }
+
+  if (right_front_speed == right_rear_speed) {
+    last_right_speed_cmd = right_front_speed;
+  } else {
+    last_right_speed_cmd = 12345;
+  }
 }
 
 /***********************************************
