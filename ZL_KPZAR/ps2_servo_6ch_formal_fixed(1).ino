@@ -90,6 +90,12 @@ void handlePadControl() {
 
   if (millis() - lastTargetUpdate >= TARGET_UPDATE_MS) {
     lastTargetUpdate = millis();
+    if (ps2.ButtonPressed(PSB_SELECT)) {
+      centerAllServos(false);
+      clampAllTargets();
+      return;
+    }
+
     bool changed = false;
 
     // 0号接口：十字键左右
@@ -150,12 +156,6 @@ void handlePadControl() {
     if (ps2.Button(PSB_R2)) {
       servoTargetUs[5] -= TARGET_STEP_US;
       changed = true;
-    }
-
-    // SELECT：全部回中
-    if (ps2.ButtonPressed(PSB_SELECT)) {
-      centerAllServos(false);
-      changed = false;
     }
 
     clampAllTargets();
