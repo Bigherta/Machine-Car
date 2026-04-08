@@ -5,11 +5,14 @@ const int JOYSTICK_MAX_ABS = 128;
 const int MOTOR_SPEED_MIN_EFFECTIVE = 80;
 const int MOTOR_SLEW_ACCEL_STEP = 20;
 const int MOTOR_SLEW_DECEL_STEP = 50;
-const int STEERING_GAIN_NUM = 8;
-const int STEERING_GAIN_DEN = 10;
+const int VY_GAIN_NUM = 10;
+const int VY_GAIN_DEN = 10;
+const int WZ_GAIN_NUM = 8;
+const int WZ_GAIN_DEN = 10;
 
-#define THROTTLE_SIGN   -1   // 若前推后退，改成 1
-#define STEERING_SIGN    1   // 若左推右转，改成 -1
+#define VX_SIGN         -1   // 若前推后退，改成 1
+#define VY_SIGN          1   // 若左推右移方向不对，改成 -1
+#define WZ_SIGN          1   // 若右推自旋方向不对，改成 -1
 #define ENABLE_LOOPKEY_DEBUG_PRINT 0
 
 static int clamp_motor_speed(int speed) {
@@ -62,19 +65,59 @@ static int approach_speed(int current, int target) {
   return target;
 }
 
+static void normalize_mecanum_targets(int *fl, int *fr, int *rl, int *rr) {
+  int abs_fl = abs(*fl);
+  int abs_fr = abs(*fr);
+  int abs_rl = abs(*rl);
+  int abs_rr = abs(*rr);
+
+  int max_abs_target = abs_fl;
+  if (abs_fr > max_abs_target) max_abs_target = abs_fr;
+  if (abs_rl > max_abs_target) max_abs_target = abs_rl;
+  if (abs_rr > max_abs_target) max_abs_target = abs_rr;
+
+  if (max_abs_target == 0) return;
+  if (max_abs_target <= MOTOR_SPEED_MAX) return;
+
+  *fl = ((long)(*fl) * MOTOR_SPEED_MAX) / max_abs_target;
+  *fr = ((long)(*fr) * MOTOR_SPEED_MAX) / max_abs_target;
+  *rl = ((long)(*rl) * MOTOR_SPEED_MAX) / max_abs_target;
+  *rr = ((long)(*rr) * MOTOR_SPEED_MAX) / max_abs_target;
+}
+
 void loop_key(void) {
-  int throttle = THROTTLE_SIGN * map_axis_to_speed(PS2_LEFT_Y);
-  int steering = STEERING_SIGN * map_axis_to_speed(PS2_LEFT_X);
-  steering = steering * STEERING_GAIN_NUM / STEERING_GAIN_DEN;
+  static int wheel_fl_speed = 0;
+  static int wheel_fr_speed = 0;
+  static int wheel_rl_speed = 0;
+  static int wheel_rr_speed = 0;
 
-  int target_motor1_speed = clamp_motor_speed(throttle + steering); // 左侧
-  int target_motor2_speed = clamp_motor_speed(throttle - steering); // 右侧
+  int vx = VX_SIGN * map_axis_to_speed(PS2_LEFT_Y);
+  int vy = VY_SIGN * map_axis_to_speed(PS2_LEFT_X);
+  int wz = WZ_SIGN * map_axis_to_speed(PS2_RIGHT_X);
 
-  motor1_speed = approach_speed(motor1_speed, target_motor1_speed);
-  motor2_speed = approach_speed(motor2_speed, target_motor2_speed);
+  vy = vy * VY_GAIN_NUM / VY_GAIN_DEN;
+  wz = wz * WZ_GAIN_NUM / WZ_GAIN_DEN;
 
-  motor1_SetSpeed(motor1_speed);
-  motor2_SetSpeed(motor2_speed);
+  // 标准麦克纳姆混控（fl/fr/rl/rr = 前左/前右/后左/后右）：
+  // vx 前后，vy 横移，wz 自旋
+  int target_fl_speed = vx + vy + wz;
+  int target_fr_speed = vx - vy - wz;
+  int target_rl_speed = vx - vy + wz;
+  int target_rr_speed = vx + vy - wz;
+
+  normalize_mecanum_targets(&target_fl_speed, &target_fr_speed, &target_rl_speed, &target_rr_speed);
+
+  target_fl_speed = clamp_motor_speed(target_fl_speed);
+  target_fr_speed = clamp_motor_speed(target_fr_speed);
+  target_rl_speed = clamp_motor_speed(target_rl_speed);
+  target_rr_speed = clamp_motor_speed(target_rr_speed);
+
+  wheel_fl_speed = approach_speed(wheel_fl_speed, target_fl_speed);
+  wheel_fr_speed = approach_speed(wheel_fr_speed, target_fr_speed);
+  wheel_rl_speed = approach_speed(wheel_rl_speed, target_rl_speed);
+  wheel_rr_speed = approach_speed(wheel_rr_speed, target_rr_speed);
+
+  motor4_SetSpeed(wheel_fl_speed, wheel_fr_speed, wheel_rl_speed, wheel_rr_speed);
 
 #if ENABLE_LOOPKEY_DEBUG_PRINT
   // 注意：当前 Serial 正在用于总线马达控制，通常不要开启调试打印
