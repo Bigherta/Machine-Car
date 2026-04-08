@@ -66,10 +66,15 @@ static int approach_speed(int current, int target) {
 }
 
 static void normalize_mecanum_targets(int *fl, int *fr, int *rl, int *rr) {
-  int max_abs_target = abs(*fl);
-  if (abs(*fr) > max_abs_target) max_abs_target = abs(*fr);
-  if (abs(*rl) > max_abs_target) max_abs_target = abs(*rl);
-  if (abs(*rr) > max_abs_target) max_abs_target = abs(*rr);
+  int abs_fl = abs(*fl);
+  int abs_fr = abs(*fr);
+  int abs_rl = abs(*rl);
+  int abs_rr = abs(*rr);
+
+  int max_abs_target = abs_fl;
+  if (abs_fr > max_abs_target) max_abs_target = abs_fr;
+  if (abs_rl > max_abs_target) max_abs_target = abs_rl;
+  if (abs_rr > max_abs_target) max_abs_target = abs_rr;
 
   if (max_abs_target == 0) return;
   if (max_abs_target <= MOTOR_SPEED_MAX) return;

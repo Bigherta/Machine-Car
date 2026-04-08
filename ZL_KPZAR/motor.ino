@@ -129,6 +129,8 @@ void motor4_SetSpeed(int left_front_speed, int right_front_speed, int left_rear_
   if (left_front_speed == left_rear_speed) {
     last_left_speed_cmd = left_front_speed;
   } else {
+    // 四轮混控下左右同侧不等速时，标记 legacy 双侧缓存无效，
+    // 让后续 motor1/2 调用按当前值重新下发。
     last_left_speed_cmd = SPEED_CMD_INVALID;
   }
 
