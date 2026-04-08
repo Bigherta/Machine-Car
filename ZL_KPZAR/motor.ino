@@ -1,117 +1,118 @@
 /****************************************************************************
-	*	@笔者	：	W
-	*	@日期	：	2019年12月28日
-	*	@所属	：	杭州众灵科技
-	*	@论坛	：	www.ZL-robot.com
-	*	@功能	：	存放电机相关的函数
- *	@函数列表：
- *	1.	void motor1_SetSpeed(int Speed) -- 电机1速度控制
- *	2.	void motor2_SetSpeed(int Speed) -- 电机2速度控制
- *	3.	void motor3_SetSpeed(int Speed) -- 电机3速度控制
- *	4.	void motor4_SetSpeed(int Speed) -- 电机4速度控制
- ****************************************************************************/
+  @功能  : 存放电机相关的函数（总线马达版本）
+  @说明  : 保留原来的 motor1 / motor2 框架
+           motor1 = 左侧两轮
+           motor2 = 右侧两轮
+****************************************************************************/
 
-/*******电机控制指令表*******/
-#define motor1_p(x) analogWrite(3, x)
-#define motor1_n(x) analogWrite(5, x)
-#define motor2_p(x) analogWrite(6, x)
-#define motor2_n(x) analogWrite(9, x)
-#define motor3_p(x) analogWrite(10, x)
-#define motor3_n(x) analogWrite(2, x)
-#define motor4_p(x) analogWrite(4, x)
-#define motor4_n(x) analogWrite(7, x)
+/************ 4个总线电机 ID（已按你实测结果填写） ************/
+#define LEFT_FRONT_ID   0    // 第一块ZMotorD 左电机
+#define RIGHT_FRONT_ID  1    // 第一块ZMotorD 右电机
+#define LEFT_REAR_ID    8    // 第二块ZMotorD 左电机
+#define RIGHT_REAR_ID   9    // 第二块ZMotorD 右电机
 
-// 初始化电机速度为0
-void setup_motor(void) {
-	motor1_speed = 0;
-	motor2_speed = 0;
-	motor3_speed = 0;
-	motor4_speed = 0;
-	motor1_SetSpeed(motor1_speed);
-	motor2_SetSpeed(motor2_speed);
-	motor3_SetSpeed(motor3_speed);
-	motor4_SetSpeed(motor4_speed);
-}
+/************ 方向修正 ************/
+#define LEFT_SIDE_DIR   1
+#define RIGHT_SIDE_DIR  1
+
+/************ 总线电机参数 ************/
+#define BUS_PWM_STOP         1500
+#define BUS_PWM_MIN_OFFSET    200
+#define BUS_PWM_MAX_OFFSET    900
+
+static int last_left_speed_cmd  = 12345;
+static int last_right_speed_cmd = 12345;
+
 /***********************************************
-	函数名称:		motor1_SetSpeed() 
-	功能介绍:		电机1速度控制
-	函数参数:		Speed 速度
-	返回值:			无
+  函数名称: motor_bus_clamp_speed()
+  功能介绍: 将速度限制在 -1000 ~ 1000
+ ***********************************************/
+static int motor_bus_clamp_speed(int speed) {
+  if (speed < -1000) return -1000;
+  if (speed > 1000)  return 1000;
+  return speed;
+}
+
+/***********************************************
+  函数名称: motor_bus_speed_to_pwm()
+  功能介绍: 把 -1000~1000 映射成总线马达 PWM
+            1500停止，>1500正转，<1500反转
+ ***********************************************/
+static int motor_bus_speed_to_pwm(int speed) {
+  speed = motor_bus_clamp_speed(speed);
+
+  if (speed == 0) return BUS_PWM_STOP;
+
+  int sign = (speed > 0) ? 1 : -1;
+  int mag  = abs(speed);
+
+  long offset = BUS_PWM_MIN_OFFSET +
+                (long)(BUS_PWM_MAX_OFFSET - BUS_PWM_MIN_OFFSET) * mag / 1000;
+
+  int pwm = BUS_PWM_STOP + sign * (int)offset;
+
+  if (pwm > 2500) pwm = 2500;
+  if (pwm < 500)  pwm = 500;
+
+  return pwm;
+}
+
+/***********************************************
+  函数名称: bus_send_motor_cmd()
+  功能介绍: 给一个总线电机发送命令
+ ***********************************************/
+static void bus_send_motor_cmd(u8 id, int pwm) {
+  char cmd[20];
+  sprintf(cmd, "#%03dP%04dT0000!", id, pwm);
+  uart_send_str((u8 *)cmd);
+  delay(3);
+}
+
+/***********************************************
+  函数名称: set_one_bus_motor()
+  功能介绍: 控制单个总线电机
+ ***********************************************/
+static void set_one_bus_motor(u8 id, int speed, int dir_sign) {
+  int actual_speed = speed * dir_sign;
+  int pwm = motor_bus_speed_to_pwm(actual_speed);
+  bus_send_motor_cmd(id, pwm);
+}
+
+/***********************************************
+  函数名称: setup_motor()
+  功能介绍: 初始化电机相关变量
+ ***********************************************/
+void setup_motor(void) {
+  motor1_speed = 0;
+  motor2_speed = 0;
+  last_left_speed_cmd  = 12345;
+  last_right_speed_cmd = 12345;
+}
+
+/***********************************************
+  函数名称: motor1_SetSpeed()
+  功能介绍: 控制左侧两轮
  ***********************************************/
 void motor1_SetSpeed(int Speed) {
-	if (Speed == 0) {
-		motor1_p(0);
-		motor1_n(0);
-	} else if (Speed > 0) {
-		Speed = Speed / 5 + 55;
-		motor1_p(Speed);
-		motor1_n(0);
-	} else {
-		Speed = -1 * Speed / 5 + 55;
-		motor1_p(0);
-		motor1_n(Speed);
-	}
+  Speed = motor_bus_clamp_speed(Speed);
+
+  if (Speed == last_left_speed_cmd) return;
+  last_left_speed_cmd = Speed;
+
+  set_one_bus_motor(LEFT_FRONT_ID, Speed, LEFT_SIDE_DIR);
+  set_one_bus_motor(LEFT_REAR_ID,  Speed, LEFT_SIDE_DIR);
 }
 
 /***********************************************
-	函数名称:		motor2_SetSpeed() 
-	功能介绍:		电机2速度控制
-	函数参数:		Speed 速度
-	返回值:			无
+  函数名称: motor2_SetSpeed()
+  功能介绍: 控制右侧两轮
  ***********************************************/
 void motor2_SetSpeed(int Speed) {
-	if (Speed == 0) {
-		motor2_p(0);
-		motor2_n(0);
-	} else if (Speed > 0) {
-		Speed = Speed / 5 + 55;
-		motor2_p(Speed);
-		motor2_n(0);
-	} else {
-		Speed = -1 * Speed / 5 + 55;
-		motor2_p(0);
-		motor2_n(Speed);
-	}
-}
+  Speed = motor_bus_clamp_speed(Speed);
 
-/***********************************************
-	函数名称:		motor3_SetSpeed() 
-	功能介绍:		电机3速度控制
-	函数参数:		Speed 速度
-	返回值:			无
- ***********************************************/
-void motor3_SetSpeed(int Speed) {
-	if (Speed == 0) {
-		motor3_p(0);
-		motor3_n(0);
-	} else if (Speed > 0) {
-		Speed = Speed / 5 + 55;
-		motor3_p(Speed);
-		motor3_n(0);
-	} else {
-		Speed = -1 * Speed / 5 + 55;
-		motor3_p(0);
-		motor3_n(Speed);
-	}
-}
+  if (Speed == last_right_speed_cmd) return;
+  last_right_speed_cmd = Speed;
 
-/***********************************************
-	函数名称:		motor4_SetSpeed() 
-	功能介绍:		电机4速度控制
-	函数参数:		Speed 速度
-	返回值:			无
- ***********************************************/
-void motor4_SetSpeed(int Speed) {
-	if (Speed == 0) {
-		motor4_p(0);
-		motor4_n(0);
-	} else if (Speed > 0) {
-		Speed = Speed / 5 + 55;
-		motor4_p(Speed);
-		motor4_n(0);
-	} else {
-		Speed = -1 * Speed / 5 + 55;
-		motor4_p(0);
-		motor4_n(Speed);
-	}
+  set_one_bus_motor(RIGHT_FRONT_ID, Speed, RIGHT_SIDE_DIR);
+  set_one_bus_motor(RIGHT_REAR_ID,  Speed, RIGHT_SIDE_DIR);
 }

@@ -5,10 +5,12 @@ const int JOYSTICK_MAX_ABS = 128;
 const int MOTOR_SPEED_MIN_EFFECTIVE = 80;
 const int MOTOR_SLEW_ACCEL_STEP = 20;
 const int MOTOR_SLEW_DECEL_STEP = 50;
-const int STRAFE_GAIN_NUM = 10;
-const int STRAFE_GAIN_DEN = 10;
-const int ROTATE_GAIN_NUM = 7;
-const int ROTATE_GAIN_DEN = 10;
+const int STEERING_GAIN_NUM = 8;
+const int STEERING_GAIN_DEN = 10;
+
+#define THROTTLE_SIGN   -1   // 若前推后退，改成 1
+#define STEERING_SIGN    1   // 若左推右转，改成 -1
+#define ENABLE_LOOPKEY_DEBUG_PRINT 0
 
 static int clamp_motor_speed(int speed) {
   if (speed < MOTOR_SPEED_MIN) return MOTOR_SPEED_MIN;
@@ -30,12 +32,10 @@ static int map_axis_to_speed(int axis) {
   const int active_range = JOYSTICK_MAX_ABS - JOYSTICK_DEADZONE;
   if (magnitude > active_range) magnitude = active_range;
 
-  // 二次曲线：偏移越大，增幅越大
   long quadratic_value = (long)magnitude * (long)magnitude / active_range;
   long scaled = quadratic_value * MOTOR_SPEED_MAX / active_range;
   int speed = (int)scaled;
 
-  // speed 在此处始终为非负量，方向在返回时由 sign 统一施加
   if (speed != 0 && speed < MOTOR_SPEED_MIN_EFFECTIVE) {
     speed = MOTOR_SPEED_MIN_EFFECTIVE;
   }
@@ -57,44 +57,26 @@ static int approach_speed(int current, int target) {
     step = MOTOR_SLEW_ACCEL_STEP;
   }
 
-  if (delta > step) return current + step;
+  if (delta > step)  return current + step;
   if (delta < -step) return current - step;
   return target;
 }
 
 void loop_key(void) {
-  int vx = map_axis_to_speed(PS2_LEFT_Y);
-  int vy = map_axis_to_speed(PS2_LEFT_X);
-  int wz = map_axis_to_speed(PS2_RIGHT_X);
+  int throttle = THROTTLE_SIGN * map_axis_to_speed(PS2_LEFT_Y);
+  int steering = STEERING_SIGN * map_axis_to_speed(PS2_LEFT_X);
+  steering = steering * STEERING_GAIN_NUM / STEERING_GAIN_DEN;
 
-  vy = vy * STRAFE_GAIN_NUM / STRAFE_GAIN_DEN;
-  wz = wz * ROTATE_GAIN_NUM / ROTATE_GAIN_DEN;
+  int target_motor1_speed = clamp_motor_speed(throttle + steering); // 左侧
+  int target_motor2_speed = clamp_motor_speed(throttle - steering); // 右侧
 
-  // 麦克纳姆轮解算约定：
-  // motor1=前左(FL), motor2=前右(FR), motor3=后左(RL), motor4=后右(RR)。
-  // 若实车方向与预期不一致，请按接线/电机极性调整电机映射或对应轮符号。
-  long target_motor1_speed = (long)vx + (long)vy + (long)wz;  // front-left
-  long target_motor2_speed = (long)vx - (long)vy - (long)wz;  // front-right
-  long target_motor3_speed = (long)vx - (long)vy + (long)wz;  // rear-left
-  long target_motor4_speed = (long)vx + (long)vy - (long)wz;  // rear-right
+  motor1_speed = approach_speed(motor1_speed, target_motor1_speed);
+  motor2_speed = approach_speed(motor2_speed, target_motor2_speed);
 
-  long max_abs = abs(target_motor1_speed);
-  if (abs(target_motor2_speed) > max_abs) max_abs = abs(target_motor2_speed);
-  if (abs(target_motor3_speed) > max_abs) max_abs = abs(target_motor3_speed);
-  if (abs(target_motor4_speed) > max_abs) max_abs = abs(target_motor4_speed);
-  if (max_abs > 0 && max_abs > MOTOR_SPEED_MAX) {
-    target_motor1_speed = target_motor1_speed * MOTOR_SPEED_MAX / max_abs;
-    target_motor2_speed = target_motor2_speed * MOTOR_SPEED_MAX / max_abs;
-    target_motor3_speed = target_motor3_speed * MOTOR_SPEED_MAX / max_abs;
-    target_motor4_speed = target_motor4_speed * MOTOR_SPEED_MAX / max_abs;
-  }
-
-  motor1_speed = approach_speed(motor1_speed, clamp_motor_speed((int)target_motor1_speed));
-  motor2_speed = approach_speed(motor2_speed, clamp_motor_speed((int)target_motor2_speed));
-  motor3_speed = approach_speed(motor3_speed, clamp_motor_speed((int)target_motor3_speed));
-  motor4_speed = approach_speed(motor4_speed, clamp_motor_speed((int)target_motor4_speed));
   motor1_SetSpeed(motor1_speed);
   motor2_SetSpeed(motor2_speed);
-  motor3_SetSpeed(motor3_speed);
-  motor4_SetSpeed(motor4_speed);
+
+#if ENABLE_LOOPKEY_DEBUG_PRINT
+  // 注意：当前 Serial 正在用于总线马达控制，通常不要开启调试打印
+#endif
 }
