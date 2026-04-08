@@ -6,28 +6,28 @@
 ****************************************************************************/
 
 /************ 4个总线电机 ID（已按你实测结果填写） ************/
-#define LEFT_FRONT_ID   0    // 第一块ZMotorD 左电机
-#define RIGHT_FRONT_ID  1    // 第一块ZMotorD 右电机
-#define LEFT_REAR_ID    8    // 第二块ZMotorD 左电机
-#define RIGHT_REAR_ID   9    // 第二块ZMotorD 右电机
+#define LEFT_FRONT_ID 0   // 第一块ZMotorD 左电机
+#define RIGHT_FRONT_ID 1  // 第一块ZMotorD 右电机
+#define LEFT_REAR_ID 8    // 第二块ZMotorD 左电机
+#define RIGHT_REAR_ID 9   // 第二块ZMotorD 右电机
 
 /************ 方向修正 ************/
-#define LEFT_SIDE_DIR   1
-#define RIGHT_SIDE_DIR  1
+#define LEFT_SIDE_DIR 1
+#define RIGHT_SIDE_DIR 1
 
 /************ 总线电机参数 ************/
-#define BUS_PWM_STOP         1500
-#define BUS_PWM_MIN_OFFSET    200
-#define BUS_PWM_MAX_OFFSET    900
+#define BUS_PWM_STOP 1500
+#define BUS_PWM_MIN_OFFSET 200
+#define BUS_PWM_MAX_OFFSET 900
 
 const int SPEED_CMD_INVALID = 12345;
 
-static int last_left_speed_cmd  = SPEED_CMD_INVALID;
+static int last_left_speed_cmd = SPEED_CMD_INVALID;
 static int last_right_speed_cmd = SPEED_CMD_INVALID;
-static int last_left_front_speed_cmd  = SPEED_CMD_INVALID;
+static int last_left_front_speed_cmd = SPEED_CMD_INVALID;
 static int last_right_front_speed_cmd = SPEED_CMD_INVALID;
-static int last_left_rear_speed_cmd   = SPEED_CMD_INVALID;
-static int last_right_rear_speed_cmd  = SPEED_CMD_INVALID;
+static int last_left_rear_speed_cmd = SPEED_CMD_INVALID;
+static int last_right_rear_speed_cmd = SPEED_CMD_INVALID;
 
 /***********************************************
   函数名称: motor_bus_clamp_speed()
@@ -35,7 +35,7 @@ static int last_right_rear_speed_cmd  = SPEED_CMD_INVALID;
  ***********************************************/
 static int motor_bus_clamp_speed(int speed) {
   if (speed < -1000) return -1000;
-  if (speed > 1000)  return 1000;
+  if (speed > 1000) return 1000;
   return speed;
 }
 
@@ -50,15 +50,14 @@ static int motor_bus_speed_to_pwm(int speed) {
   if (speed == 0) return BUS_PWM_STOP;
 
   int sign = (speed > 0) ? 1 : -1;
-  int mag  = abs(speed);
+  int mag = abs(speed);
 
-  long offset = BUS_PWM_MIN_OFFSET +
-                (long)(BUS_PWM_MAX_OFFSET - BUS_PWM_MIN_OFFSET) * mag / 1000;
+  long offset = BUS_PWM_MIN_OFFSET + (long)(BUS_PWM_MAX_OFFSET - BUS_PWM_MIN_OFFSET) * mag / 1000;
 
   int pwm = BUS_PWM_STOP + sign * (int)offset;
 
   if (pwm > 2500) pwm = 2500;
-  if (pwm < 500)  pwm = 500;
+  if (pwm < 500) pwm = 500;
 
   return pwm;
 }
@@ -91,12 +90,12 @@ static void set_one_bus_motor(u8 id, int speed, int dir_sign) {
 void setup_motor(void) {
   motor1_speed = 0;
   motor2_speed = 0;
-  last_left_speed_cmd  = SPEED_CMD_INVALID;
+  last_left_speed_cmd = SPEED_CMD_INVALID;
   last_right_speed_cmd = SPEED_CMD_INVALID;
-  last_left_front_speed_cmd  = SPEED_CMD_INVALID;
+  last_left_front_speed_cmd = SPEED_CMD_INVALID;
   last_right_front_speed_cmd = SPEED_CMD_INVALID;
-  last_left_rear_speed_cmd   = SPEED_CMD_INVALID;
-  last_right_rear_speed_cmd  = SPEED_CMD_INVALID;
+  last_left_rear_speed_cmd = SPEED_CMD_INVALID;
+  last_right_rear_speed_cmd = SPEED_CMD_INVALID;
 }
 
 /***********************************************
@@ -104,10 +103,10 @@ void setup_motor(void) {
   功能介绍: 控制四个轮子（麦克纳姆）
  ***********************************************/
 void motor4_SetSpeed(int left_front_speed, int right_front_speed, int left_rear_speed, int right_rear_speed) {
-  left_front_speed  = motor_bus_clamp_speed(left_front_speed);
+  left_front_speed = motor_bus_clamp_speed(left_front_speed);
   right_front_speed = motor_bus_clamp_speed(right_front_speed);
-  left_rear_speed   = motor_bus_clamp_speed(left_rear_speed);
-  right_rear_speed  = motor_bus_clamp_speed(right_rear_speed);
+  left_rear_speed = motor_bus_clamp_speed(left_rear_speed);
+  right_rear_speed = motor_bus_clamp_speed(right_rear_speed);
 
   if (left_front_speed != last_left_front_speed_cmd) {
     last_left_front_speed_cmd = left_front_speed;

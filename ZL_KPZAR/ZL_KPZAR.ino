@@ -13,8 +13,7 @@
 
 /*******全局变量宏定义*******/
 #define UART_RECEIVE_BUF_SIZE 100
-#define ENABLE_KEY_INIT 0          // 0: 关闭按键初始化，避免占用 D6
-#define ENABLE_MOTOR_FORCE_TEST 0  // 1: 启用电机强制转动自检模式
+#define ENABLE_KEY_INIT 0  // 0: 关闭按键初始化，避免占用 D6
 
 /*******PS2管脚映射表*******/
 #define PS2_DAT 12
@@ -88,35 +87,13 @@ void setup(void) {  //ZL
 	setup_motor();
 	setup_uart();  //初始化串口
 	setup_ps2();
-#if ENABLE_KEY_INIT
-	key_init();  //初始化按键
-#endif
 	origin_left_x = PS2_LEFT_X_RAW;
 	origin_right_x = PS2_RIGHT_X_RAW;
 	origin_left_y = PS2_LEFT_Y_RAW;
 	origin_right_y = PS2_RIGHT_Y_RAW;
 }
 void loop(void) {
-#if ENABLE_MOTOR_FORCE_TEST
-	// 强制转动自检：速度值沿用 motor*_SetSpeed 的输入范围（约 -1000~1000）
-	motor1_SetSpeed(500);
-	motor2_SetSpeed(500);
-	delay(2000);
-
-	motor1_SetSpeed(0);
-	motor2_SetSpeed(0);
-	delay(1000);
-
-	motor1_SetSpeed(-500);
-	motor2_SetSpeed(-500);
-	delay(2000);
-
-	motor1_SetSpeed(0);
-	motor2_SetSpeed(0);
-	delay(1000);
-#else
 	loop_ps2();  //循环检测手柄状态
 	loop_key();
 	delay(20);
-#endif
 }

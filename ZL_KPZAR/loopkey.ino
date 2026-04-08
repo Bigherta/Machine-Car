@@ -10,9 +10,9 @@ const int VY_GAIN_DEN = 10;
 const int WZ_GAIN_NUM = 8;
 const int WZ_GAIN_DEN = 10;
 
-#define VX_SIGN         -1   // 若前推后退，改成 1
-#define VY_SIGN         -1   // 若左推右移方向不对，改成 -1
-#define WZ_SIGN          1   // 若右推自旋方向不对，改成 -1
+#define VX_SIGN -1  // 若前推后退，改成 1
+#define VY_SIGN -1  // 若左推右移方向不对，改成 -1
+#define WZ_SIGN 1   // 若右推自旋方向不对，改成 -1
 #define ENABLE_LOOPKEY_DEBUG_PRINT 0
 
 static int clamp_motor_speed(int speed) {
@@ -60,7 +60,7 @@ static int approach_speed(int current, int target) {
     step = MOTOR_SLEW_ACCEL_STEP;
   }
 
-  if (delta > step)  return current + step;
+  if (delta > step) return current + step;
   if (delta < -step) return current - step;
   return target;
 }
@@ -118,8 +118,4 @@ void loop_key(void) {
   wheel_rr_speed = approach_speed(wheel_rr_speed, target_rr_speed);
 
   motor4_SetSpeed(wheel_fl_speed, wheel_fr_speed, wheel_rl_speed, wheel_rr_speed);
-
-#if ENABLE_LOOPKEY_DEBUG_PRINT
-  // 注意：当前 Serial 正在用于总线马达控制，通常不要开启调试打印
-#endif
 }
