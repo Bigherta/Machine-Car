@@ -16,7 +16,7 @@ void loop_ps2(void) {
 
   if (ps2_mode != 0) {
     g_ps2_link_ok = false;
-    g_ps2_last_ok_ms = 0;
+    g_ps2_last_ok_ms = now_ms;
     return;
   }
 
