@@ -20,12 +20,14 @@
 #define BUS_PWM_MIN_OFFSET    200
 #define BUS_PWM_MAX_OFFSET    900
 
-static int last_left_speed_cmd  = 12345;
-static int last_right_speed_cmd = 12345;
-static int last_left_front_speed_cmd  = 12345;
-static int last_right_front_speed_cmd = 12345;
-static int last_left_rear_speed_cmd   = 12345;
-static int last_right_rear_speed_cmd  = 12345;
+const int SPEED_CMD_INVALID = 12345;
+
+static int last_left_speed_cmd  = SPEED_CMD_INVALID;
+static int last_right_speed_cmd = SPEED_CMD_INVALID;
+static int last_left_front_speed_cmd  = SPEED_CMD_INVALID;
+static int last_right_front_speed_cmd = SPEED_CMD_INVALID;
+static int last_left_rear_speed_cmd   = SPEED_CMD_INVALID;
+static int last_right_rear_speed_cmd  = SPEED_CMD_INVALID;
 
 /***********************************************
   函数名称: motor_bus_clamp_speed()
@@ -89,12 +91,12 @@ static void set_one_bus_motor(u8 id, int speed, int dir_sign) {
 void setup_motor(void) {
   motor1_speed = 0;
   motor2_speed = 0;
-  last_left_speed_cmd  = 12345;
-  last_right_speed_cmd = 12345;
-  last_left_front_speed_cmd  = 12345;
-  last_right_front_speed_cmd = 12345;
-  last_left_rear_speed_cmd   = 12345;
-  last_right_rear_speed_cmd  = 12345;
+  last_left_speed_cmd  = SPEED_CMD_INVALID;
+  last_right_speed_cmd = SPEED_CMD_INVALID;
+  last_left_front_speed_cmd  = SPEED_CMD_INVALID;
+  last_right_front_speed_cmd = SPEED_CMD_INVALID;
+  last_left_rear_speed_cmd   = SPEED_CMD_INVALID;
+  last_right_rear_speed_cmd  = SPEED_CMD_INVALID;
 }
 
 /***********************************************
@@ -127,13 +129,13 @@ void motor4_SetSpeed(int left_front_speed, int right_front_speed, int left_rear_
   if (left_front_speed == left_rear_speed) {
     last_left_speed_cmd = left_front_speed;
   } else {
-    last_left_speed_cmd = 12345;
+    last_left_speed_cmd = SPEED_CMD_INVALID;
   }
 
   if (right_front_speed == right_rear_speed) {
     last_right_speed_cmd = right_front_speed;
   } else {
-    last_right_speed_cmd = 12345;
+    last_right_speed_cmd = SPEED_CMD_INVALID;
   }
 }
 

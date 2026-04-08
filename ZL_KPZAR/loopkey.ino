@@ -93,6 +93,8 @@ void loop_key(void) {
   vy = vy * VY_GAIN_NUM / VY_GAIN_DEN;
   wz = wz * WZ_GAIN_NUM / WZ_GAIN_DEN;
 
+  // 标准麦克纳姆混控（fl/fr/rl/rr = 前左/前右/后左/后右）：
+  // vx 前后，vy 横移，wz 自旋
   int target_fl_speed = vx + vy + wz;
   int target_fr_speed = vx - vy - wz;
   int target_rl_speed = vx - vy + wz;
