@@ -133,8 +133,9 @@ void setup_servo(void) {
 void loop_servo(void) {
   if (!g_ps2_link_ok) {
     centerAllServos(false);
+  } else {
+    handlePadControl();
   }
 
-  handlePadControl();
   updateServosSmoothly();
 }
