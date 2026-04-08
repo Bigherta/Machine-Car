@@ -40,6 +40,7 @@ int servoCurrentUs[6] = {
 
 unsigned long lastTargetUpdate = 0;
 unsigned long lastMoveUpdate = 0;
+bool servo_targets_centered = true;
 
 void centerAllServos(bool writeNow) {
   for (int i = 0; i < 6; i++) {
@@ -49,6 +50,7 @@ void centerAllServos(bool writeNow) {
       servos[i].writeMicroseconds(SERVO_CENTER_US);
     }
   }
+  servo_targets_centered = true;
 }
 
 void clampAllTargets() {
@@ -88,37 +90,78 @@ void handlePadControl() {
 
   if (millis() - lastTargetUpdate >= TARGET_UPDATE_MS) {
     lastTargetUpdate = millis();
+    bool changed = false;
 
     // 0号接口：十字键左右
-    if (ps2.Button(PSB_PAD_LEFT))  servoTargetUs[0] += TARGET_STEP_US;
-    if (ps2.Button(PSB_PAD_RIGHT)) servoTargetUs[0] -= TARGET_STEP_US;
+    if (ps2.Button(PSB_PAD_LEFT)) {
+      servoTargetUs[0] += TARGET_STEP_US;
+      changed = true;
+    }
+    if (ps2.Button(PSB_PAD_RIGHT)) {
+      servoTargetUs[0] -= TARGET_STEP_US;
+      changed = true;
+    }
 
     // 1号接口：L1 / R1
-    if (ps2.Button(PSB_L1)) servoTargetUs[1] += TARGET_STEP_US;
-    if (ps2.Button(PSB_R1)) servoTargetUs[1] -= TARGET_STEP_US;
+    if (ps2.Button(PSB_L1)) {
+      servoTargetUs[1] += TARGET_STEP_US;
+      changed = true;
+    }
+    if (ps2.Button(PSB_R1)) {
+      servoTargetUs[1] -= TARGET_STEP_US;
+      changed = true;
+    }
 
     // 2号接口：三角 / 叉
-    if (ps2.Button(PSB_TRIANGLE)) servoTargetUs[2] += TARGET_STEP_US;
-    if (ps2.Button(PSB_CROSS))    servoTargetUs[2] -= TARGET_STEP_US;
+    if (ps2.Button(PSB_TRIANGLE)) {
+      servoTargetUs[2] += TARGET_STEP_US;
+      changed = true;
+    }
+    if (ps2.Button(PSB_CROSS)) {
+      servoTargetUs[2] -= TARGET_STEP_US;
+      changed = true;
+    }
 
     // 3号接口：十字键上下
-    if (ps2.Button(PSB_PAD_UP))   servoTargetUs[3] += TARGET_STEP_US;
-    if (ps2.Button(PSB_PAD_DOWN)) servoTargetUs[3] -= TARGET_STEP_US;
+    if (ps2.Button(PSB_PAD_UP)) {
+      servoTargetUs[3] += TARGET_STEP_US;
+      changed = true;
+    }
+    if (ps2.Button(PSB_PAD_DOWN)) {
+      servoTargetUs[3] -= TARGET_STEP_US;
+      changed = true;
+    }
 
     // 4号接口：方块 / 圆圈
-    if (ps2.Button(PSB_SQUARE)) servoTargetUs[4] += TARGET_STEP_US;
-    if (ps2.Button(PSB_CIRCLE)) servoTargetUs[4] -= TARGET_STEP_US;
+    if (ps2.Button(PSB_SQUARE)) {
+      servoTargetUs[4] += TARGET_STEP_US;
+      changed = true;
+    }
+    if (ps2.Button(PSB_CIRCLE)) {
+      servoTargetUs[4] -= TARGET_STEP_US;
+      changed = true;
+    }
 
     // 5号接口：L2 / R2
-    if (ps2.Button(PSB_L2)) servoTargetUs[5] += TARGET_STEP_US;
-    if (ps2.Button(PSB_R2)) servoTargetUs[5] -= TARGET_STEP_US;
+    if (ps2.Button(PSB_L2)) {
+      servoTargetUs[5] += TARGET_STEP_US;
+      changed = true;
+    }
+    if (ps2.Button(PSB_R2)) {
+      servoTargetUs[5] -= TARGET_STEP_US;
+      changed = true;
+    }
 
     // SELECT：全部回中
     if (ps2.ButtonPressed(PSB_SELECT)) {
       centerAllServos(false);
+      changed = false;
     }
 
     clampAllTargets();
+    if (changed) {
+      servo_targets_centered = false;
+    }
   }
 }
 
@@ -132,7 +175,9 @@ void setup_servo(void) {
 
 void loop_servo(void) {
   if (!g_ps2_link_ok) {
-    centerAllServos(false);
+    if (!servo_targets_centered) {
+      centerAllServos(false);
+    }
   } else {
     handlePadControl();
   }

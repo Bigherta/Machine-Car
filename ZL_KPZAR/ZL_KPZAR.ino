@@ -96,4 +96,5 @@ void loop(void) {
 	loop_ps2();  //循环检测手柄状态
 	loop_key();
 	loop_servo();
+	delay(20);
 }
