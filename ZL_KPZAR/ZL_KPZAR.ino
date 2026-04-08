@@ -86,6 +86,7 @@ void setup(void) {  //ZL
 	setup_motor();
 	setup_uart();  //初始化串口
 	setup_ps2();
+	setup_servo();
 	origin_left_x = PS2_LEFT_X_RAW;
 	origin_right_x = PS2_RIGHT_X_RAW;
 	origin_left_y = PS2_LEFT_Y_RAW;
@@ -94,5 +95,5 @@ void setup(void) {  //ZL
 void loop(void) {
 	loop_ps2();  //循环检测手柄状态
 	loop_key();
-	delay(20);
+	loop_servo();
 }

@@ -2,6 +2,9 @@
   @功能  : 存放初始化相关的函数
 ****************************************************************************/
 
+extern bool g_ps2_link_ok;
+extern u32 g_ps2_last_ok_ms;
+
 /***********************************************
   函数名称: setup_uart()
   功能介绍: 初始化串口
@@ -28,4 +31,6 @@ void setup_ps2(void) {
 
   // 先做一次刷新，后续在 loop_ps2 中持续读取。
   ps2.read_gamepad(false, 0);
+  g_ps2_link_ok = (ps2_mode == 0);
+  g_ps2_last_ok_ms = millis();
 }
