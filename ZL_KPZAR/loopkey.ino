@@ -32,10 +32,11 @@ const int LOW_GEAR_PERCENT  = 35;
 const int MID_GEAR_PERCENT  = 65;
 const int HIGH_GEAR_PERCENT = 100;
 
-// 右摇杆Y轴阈值：
-// 大于这个值 -> 高速挡
-// 小于负这个值 -> 低速挡
-// 中间区域 -> 中速挡
+// 右摇杆Y轴阈值（注意：这里使用的是 PS2_RIGHT_Y 偏移值，中心是 0）
+// 大于这个值 -> 切到高速挡
+// 小于负这个值 -> 切到低速挡
+// 中间区域 -> 保持当前挡位（初始默认中速挡）
+// 说明：1500 是总线电机PWM停转中值，不是摇杆Y轴中值。
 const int GEAR_HIGH_THRESHOLD = 55;
 const int GEAR_LOW_THRESHOLD  = -55;
 
@@ -126,8 +127,6 @@ static void loopkey_update_gear_by_right_y(void) {
     g_speed_gear = 2;   // 高速挡
   } else if (gear_axis <= GEAR_LOW_THRESHOLD) {
     g_speed_gear = 0;   // 低速挡
-  } else {
-    g_speed_gear = 1;   // 中速挡
   }
 }
 
