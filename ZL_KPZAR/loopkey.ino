@@ -1,39 +1,90 @@
-const int MOTOR_SPEED_MIN = -1000;
-const int MOTOR_SPEED_MAX = 1000;
-const int JOYSTICK_DEADZONE = 5;
+const int MOTOR_SPEED_MIN = -300;
+const int MOTOR_SPEED_MAX = 300;   // 高速挡的基础最大速度，可改 500 / 700
+
+const int JOYSTICK_DEADZONE = 8;
 const int JOYSTICK_MAX_ABS = 128;
-const int MOTOR_SPEED_MIN_EFFECTIVE = 80;
-const int MOTOR_SLEW_ACCEL_STEP = 20;
-const int MOTOR_SLEW_DECEL_STEP = 50;
-const int VY_GAIN_NUM = 10;
-const int VY_GAIN_DEN = 10;
-const int WZ_GAIN_NUM = 8;
-const int WZ_GAIN_DEN = 10;
 
-#define VX_SIGN -1  // 若前推后退，改成 1
-#define VY_SIGN -1  // 若左推右移方向不对，改成 -1
-#define WZ_SIGN 1   // 若右推自旋方向不对，改成 -1
-#define ENABLE_LOOPKEY_DEBUG_PRINT 0
+const int THROTTLE_MIN_EFFECTIVE = 100;
+const int STRAFE_MIN_EFFECTIVE   = 100;
+const int ROTATE_MIN_EFFECTIVE   = 220;
 
-extern bool g_ps2_link_ok;
+const int MOTOR_SLEW_ACCEL_STEP = 30;
+const int MOTOR_SLEW_DECEL_STEP = 70;
 
-static int clamp_motor_speed(int speed) {
+const int THROTTLE_GAIN_NUM = 10;
+const int THROTTLE_GAIN_DEN = 10;
+
+const int STRAFE_GAIN_NUM = 10;
+const int STRAFE_GAIN_DEN = 10;
+
+const int ROTATE_GAIN_NUM = 15;
+const int ROTATE_GAIN_DEN = 10;
+
+const int ROTATE_PRIORITY_THRESHOLD    = 140;
+const int TRANSLATION_IGNORE_THRESHOLD = 120;
+
+// ================= 挡位设置 =================
+// 0 = 低速挡，1 = 中速挡，2 = 高速挡
+static int g_speed_gear = 1;   // 初始中速挡
+
+// 各挡位速度百分比
+const int LOW_GEAR_PERCENT  = 35;
+const int MID_GEAR_PERCENT  = 65;
+const int HIGH_GEAR_PERCENT = 100;
+
+// 右摇杆Y轴阈值：
+// 大于这个值 -> 高速挡
+// 小于负这个值 -> 低速挡
+// 中间区域 -> 中速挡
+const int GEAR_HIGH_THRESHOLD = 55;
+const int GEAR_LOW_THRESHOLD  = -55;
+
+// 如果你发现“向上推右摇杆”实际进了低速挡，
+// 就把这个 1 改成 -1
+#define GEAR_AXIS_SIGN 1
+
+// 方向符号（保留你当前已经调通的状态）
+#define THROTTLE_SIGN  -1
+#define ROTATE_SIGN    -1
+#define STRAFE_SIGN    -1
+
+static int current_lf = 0;
+static int current_rf = 0;
+static int current_lr = 0;
+static int current_rr = 0;
+
+static int loopkey_clamp_motor_speed(int speed) {
   if (speed < MOTOR_SPEED_MIN) return MOTOR_SPEED_MIN;
   if (speed > MOTOR_SPEED_MAX) return MOTOR_SPEED_MAX;
   return speed;
 }
 
-static int apply_deadzone(int value) {
+static int loopkey_apply_deadzone(int value) {
   if (abs(value) <= JOYSTICK_DEADZONE) return 0;
   return value;
 }
 
-static int map_axis_to_speed(int axis) {
-  int value = apply_deadzone(axis);
+static int loopkey_apply_gear_scale(int speed) {
+  int percent;
+
+  if (g_speed_gear == 0) {
+    percent = LOW_GEAR_PERCENT;
+  } else if (g_speed_gear == 2) {
+    percent = HIGH_GEAR_PERCENT;
+  } else {
+    percent = MID_GEAR_PERCENT;
+  }
+
+  return ((long)speed * percent) / 100;
+}
+
+static int loopkey_map_axis_to_speed_with_min(int axis, int min_effective) {
+  int value = loopkey_apply_deadzone(axis);
   if (value == 0) return 0;
 
   int sign = value > 0 ? 1 : -1;
   int magnitude = abs(value) - JOYSTICK_DEADZONE;
+
   const int active_range = JOYSTICK_MAX_ABS - JOYSTICK_DEADZONE;
   if (magnitude > active_range) magnitude = active_range;
 
@@ -41,92 +92,99 @@ static int map_axis_to_speed(int axis) {
   long scaled = quadratic_value * MOTOR_SPEED_MAX / active_range;
   int speed = (int)scaled;
 
-  if (speed != 0 && speed < MOTOR_SPEED_MIN_EFFECTIVE) {
-    speed = MOTOR_SPEED_MIN_EFFECTIVE;
+  if (speed != 0 && speed < min_effective) {
+    speed = min_effective;
   }
+
   return sign * speed;
 }
 
-static bool is_same_nonzero_direction(int current, int target) {
-  if (target == 0 || current == 0) return false;
-  return (current > 0 && target > 0) || (current < 0 && target < 0);
-}
-
-static int approach_speed(int current, int target) {
+static int loopkey_approach_speed(int current, int target) {
   int delta = target - current;
   if (delta == 0) return current;
 
   int step = MOTOR_SLEW_DECEL_STEP;
-  bool same_direction = is_same_nonzero_direction(current, target);
+
+  bool same_direction = false;
+  if (current != 0 && target != 0) {
+    same_direction = ((current > 0 && target > 0) || (current < 0 && target < 0));
+  }
+
   if (same_direction && abs(target) > abs(current)) {
     step = MOTOR_SLEW_ACCEL_STEP;
   }
 
-  if (delta > step) return current + step;
+  if (delta > step)  return current + step;
   if (delta < -step) return current - step;
   return target;
 }
 
-static void normalize_mecanum_targets(int *fl, int *fr, int *rl, int *rr) {
-  int abs_fl = abs(*fl);
-  int abs_fr = abs(*fr);
-  int abs_rl = abs(*rl);
-  int abs_rr = abs(*rr);
+static void loopkey_update_gear_by_right_y(void) {
+  int gear_axis = GEAR_AXIS_SIGN * loopkey_apply_deadzone(PS2_RIGHT_Y);
 
-  int max_abs_target = abs_fl;
-  if (abs_fr > max_abs_target) max_abs_target = abs_fr;
-  if (abs_rl > max_abs_target) max_abs_target = abs_rl;
-  if (abs_rr > max_abs_target) max_abs_target = abs_rr;
-
-  if (max_abs_target == 0) return;
-  if (max_abs_target <= MOTOR_SPEED_MAX) return;
-
-  *fl = ((long)(*fl) * MOTOR_SPEED_MAX) / max_abs_target;
-  *fr = ((long)(*fr) * MOTOR_SPEED_MAX) / max_abs_target;
-  *rl = ((long)(*rl) * MOTOR_SPEED_MAX) / max_abs_target;
-  *rr = ((long)(*rr) * MOTOR_SPEED_MAX) / max_abs_target;
+  if (gear_axis >= GEAR_HIGH_THRESHOLD) {
+    g_speed_gear = 2;   // 高速挡
+  } else if (gear_axis <= GEAR_LOW_THRESHOLD) {
+    g_speed_gear = 0;   // 低速挡
+  } else {
+    g_speed_gear = 1;   // 中速挡
+  }
 }
 
 void loop_key(void) {
-  static int wheel_fl_speed = 0;
-  static int wheel_fr_speed = 0;
-  static int wheel_rl_speed = 0;
-  static int wheel_rr_speed = 0;
+  // ===== 根据右摇杆Y轴位置决定挡位 =====
+  loopkey_update_gear_by_right_y();
 
-  if (!g_ps2_link_ok) {
-    wheel_fl_speed = 0;
-    wheel_fr_speed = 0;
-    wheel_rl_speed = 0;
-    wheel_rr_speed = 0;
-    motor4_SetSpeed(0, 0, 0, 0);
-    return;
+  // ===== 三个运动分量 =====
+  // 左摇杆Y：前后
+  int throttle = THROTTLE_SIGN * loopkey_map_axis_to_speed_with_min(PS2_LEFT_Y, THROTTLE_MIN_EFFECTIVE);
+
+  // 右摇杆X：原地旋转
+  int rotate = ROTATE_SIGN * loopkey_map_axis_to_speed_with_min(PS2_RIGHT_X, ROTATE_MIN_EFFECTIVE);
+
+  // 左摇杆X：左右平移
+  int strafe = STRAFE_SIGN * loopkey_map_axis_to_speed_with_min(PS2_LEFT_X, STRAFE_MIN_EFFECTIVE);
+
+  // ===== 增益 =====
+  throttle = throttle * THROTTLE_GAIN_NUM / THROTTLE_GAIN_DEN;
+  rotate   = rotate   * ROTATE_GAIN_NUM   / ROTATE_GAIN_DEN;
+  strafe   = strafe   * STRAFE_GAIN_NUM   / STRAFE_GAIN_DEN;
+
+  int target_lf, target_rf, target_lr, target_rr;
+
+  // ===== 旋转优先模式 =====
+  if (abs(rotate) >= ROTATE_PRIORITY_THRESHOLD &&
+      abs(throttle) < TRANSLATION_IGNORE_THRESHOLD &&
+      abs(strafe) < TRANSLATION_IGNORE_THRESHOLD) {
+
+    // 保留你当前已经验证可用的旋转方向
+    target_lf = loopkey_clamp_motor_speed(-rotate);
+    target_rf = loopkey_clamp_motor_speed(-rotate);
+    target_lr = loopkey_clamp_motor_speed( rotate);
+    target_rr = loopkey_clamp_motor_speed( rotate);
+
+  } else {
+    // 正常混控
+    target_lf = loopkey_clamp_motor_speed(throttle + strafe + rotate);
+    target_rf = loopkey_clamp_motor_speed(throttle - strafe - rotate);
+    target_lr = loopkey_clamp_motor_speed(throttle - strafe + rotate);
+    target_rr = loopkey_clamp_motor_speed(throttle + strafe - rotate);
   }
 
-  int vx = VX_SIGN * map_axis_to_speed(PS2_LEFT_Y);
-  int vy = VY_SIGN * map_axis_to_speed(PS2_LEFT_X);
-  int wz = WZ_SIGN * map_axis_to_speed(PS2_RIGHT_X);
+  // ===== 挡位缩放 =====
+  target_lf = loopkey_clamp_motor_speed(loopkey_apply_gear_scale(target_lf));
+  target_rf = loopkey_clamp_motor_speed(loopkey_apply_gear_scale(target_rf));
+  target_lr = loopkey_clamp_motor_speed(loopkey_apply_gear_scale(target_lr));
+  target_rr = loopkey_clamp_motor_speed(loopkey_apply_gear_scale(target_rr));
 
-  vy = vy * VY_GAIN_NUM / VY_GAIN_DEN;
-  wz = wz * WZ_GAIN_NUM / WZ_GAIN_DEN;
+  // ===== 平滑过渡 =====
+  current_lf = loopkey_approach_speed(current_lf, target_lf);
+  current_rf = loopkey_approach_speed(current_rf, target_rf);
+  current_lr = loopkey_approach_speed(current_lr, target_lr);
+  current_rr = loopkey_approach_speed(current_rr, target_rr);
 
-  // 标准麦克纳姆混控（fl/fr/rl/rr = 前左/前右/后左/后右）：
-  // vx 前后，vy 横移，wz 自旋
-  int target_fl_speed = vx + vy + wz;
-  int target_fr_speed = vx - vy - wz;
-  int target_rl_speed = vx - vy + wz;
-  int target_rr_speed = vx + vy - wz;
+  // ===== 输出到四个轮子 =====
+  motor_set_wheels(current_lf, current_rf, current_lr, current_rr);
 
-  normalize_mecanum_targets(&target_fl_speed, &target_fr_speed, &target_rl_speed, &target_rr_speed);
-
-  target_fl_speed = clamp_motor_speed(target_fl_speed);
-  target_fr_speed = clamp_motor_speed(target_fr_speed);
-  target_rl_speed = clamp_motor_speed(target_rl_speed);
-  target_rr_speed = clamp_motor_speed(target_rr_speed);
-
-  wheel_fl_speed = approach_speed(wheel_fl_speed, target_fl_speed);
-  wheel_fr_speed = approach_speed(wheel_fr_speed, target_fr_speed);
-  wheel_rl_speed = approach_speed(wheel_rl_speed, target_rl_speed);
-  wheel_rr_speed = approach_speed(wheel_rr_speed, target_rr_speed);
-
-  motor4_SetSpeed(wheel_fl_speed, wheel_fr_speed, wheel_rl_speed, wheel_rr_speed);
+  delay(10);
 }
