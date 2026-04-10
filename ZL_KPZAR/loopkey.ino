@@ -121,7 +121,12 @@ static int loopkey_approach_speed(int current, int target) {
 }
 
 static void loopkey_update_gear_by_right_y(void) {
-  int gear_axis = GEAR_AXIS_SIGN * loopkey_apply_deadzone(PS2_RIGHT_Y);
+  // 优先使用开机零点校准后的相对值；若校准异常，则回退到手柄原始中心(128)的相对值。
+  int gear_axis_from_origin = GEAR_AXIS_SIGN * loopkey_apply_deadzone(PS2_RIGHT_Y);
+  int gear_axis_from_raw_center = GEAR_AXIS_SIGN * loopkey_apply_deadzone(PS2_RIGHT_Y_RAW - 128);
+  int gear_axis = (abs(gear_axis_from_origin) >= abs(gear_axis_from_raw_center))
+                    ? gear_axis_from_origin
+                    : gear_axis_from_raw_center;
 
   // 回到中间区后解锁一次换挡
   if (gear_axis < GEAR_HIGH_THRESHOLD && gear_axis > GEAR_LOW_THRESHOLD) {
