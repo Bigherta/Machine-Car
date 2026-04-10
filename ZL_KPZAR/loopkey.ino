@@ -34,7 +34,7 @@ const int HIGH_GEAR_PERCENT = 100;
 
 // 右摇杆Y轴阈值（注意：这里使用的是 PS2_RIGHT_Y 偏移值，中心是 0）
 // 大于这个值 -> 升高一档（最多到 2）
-// 小于这个负阈值 -> 降低一档（最低到 0）
+// 小于负这个值 -> 降低一档（最低到 0）
 // 中间区域 -> 解锁下一次换挡（防止持续推杆连跳）
 const int GEAR_HIGH_THRESHOLD = 55;
 const int GEAR_LOW_THRESHOLD  = -55;
