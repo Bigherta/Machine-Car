@@ -3,6 +3,7 @@ const int MOTOR_SPEED_MAX = 300;   // 高速挡的基础最大速度，可改 50
 
 const int JOYSTICK_DEADZONE = 8;
 const int JOYSTICK_MAX_ABS = 128;
+const int PS2_STICK_RAW_CENTER = 128;
 
 const int THROTTLE_MIN_EFFECTIVE = 100;
 const int STRAFE_MIN_EFFECTIVE   = 100;
@@ -123,7 +124,7 @@ static int loopkey_approach_speed(int current, int target) {
 static void loopkey_update_gear_by_right_y(void) {
   // 优先使用开机零点校准后的相对值；若校准异常，则回退到手柄原始中心(128)的相对值。
   int gear_axis_from_origin = GEAR_AXIS_SIGN * loopkey_apply_deadzone(PS2_RIGHT_Y);
-  int gear_axis_from_raw_center = GEAR_AXIS_SIGN * loopkey_apply_deadzone(PS2_RIGHT_Y_RAW - 128);
+  int gear_axis_from_raw_center = GEAR_AXIS_SIGN * loopkey_apply_deadzone(PS2_RIGHT_Y_RAW - PS2_STICK_RAW_CENTER);
   int gear_axis = (abs(gear_axis_from_origin) >= abs(gear_axis_from_raw_center))
                     ? gear_axis_from_origin
                     : gear_axis_from_raw_center;
