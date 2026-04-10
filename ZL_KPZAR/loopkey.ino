@@ -36,7 +36,7 @@ const int HIGH_GEAR_PERCENT = 100;
 // 大于这个值 -> 升高一档（最多到 2）
 // 小于这个值 -> 降低一档（最低到 0）
 // 中间区域 -> 解锁下一次换挡（防止持续推杆连跳）
-// 说明：1500 是总线电机PWM停转中值，不是摇杆Y轴中值。
+// 说明：阈值单位是摇杆偏移值（PS2_RIGHT_Y），中心为 0。
 const int GEAR_HIGH_THRESHOLD = 55;
 const int GEAR_LOW_THRESHOLD  = -55;
 
