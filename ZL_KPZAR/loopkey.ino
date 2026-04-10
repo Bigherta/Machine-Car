@@ -52,7 +52,7 @@ static int current_lf = 0;
 static int current_rf = 0;
 static int current_lr = 0;
 static int current_rr = 0;
-static bool g_gear_shift_armed = true;
+static bool loopkey_gear_shift_armed = true;
 
 static int loopkey_clamp_motor_speed(int speed) {
   if (speed < MOTOR_SPEED_MIN) return MOTOR_SPEED_MIN;
@@ -125,19 +125,19 @@ static void loopkey_update_gear_by_right_y(void) {
 
   // 回到中间区后解锁一次换挡
   if (gear_axis < GEAR_HIGH_THRESHOLD && gear_axis > GEAR_LOW_THRESHOLD) {
-    g_gear_shift_armed = true;
+    loopkey_gear_shift_armed = true;
     return;
   }
 
   // 未解锁时忽略，避免持续推杆连跳
-  if (!g_gear_shift_armed) return;
+  if (!loopkey_gear_shift_armed) return;
 
   if (gear_axis >= GEAR_HIGH_THRESHOLD && g_speed_gear < 2) {
     g_speed_gear++;      // 升高一档
-    g_gear_shift_armed = false;
+    loopkey_gear_shift_armed = false;
   } else if (gear_axis <= GEAR_LOW_THRESHOLD && g_speed_gear > 0) {
     g_speed_gear--;      // 降低一档
-    g_gear_shift_armed = false;
+    loopkey_gear_shift_armed = false;
   }
 }
 
