@@ -32,10 +32,10 @@ const int LOW_GEAR_PERCENT  = 35;
 const int MID_GEAR_PERCENT  = 65;
 const int HIGH_GEAR_PERCENT = 100;
 
-// 右摇杆Y轴阈值：
-// 大于这个值 -> 高速挡
-// 小于负这个值 -> 低速挡
-// 中间区域 -> 中速挡
+// 右摇杆Y轴阈值（注意：这里使用的是 PS2_RIGHT_Y 偏移值，中心是 0）
+// 大于这个值 -> 升高一档（最多到 2）
+// 小于负这个值 -> 降低一档（最低到 0）
+// 中间区域 -> 解锁下一次换挡（防止持续推杆连跳）
 const int GEAR_HIGH_THRESHOLD = 55;
 const int GEAR_LOW_THRESHOLD  = -55;
 
@@ -52,6 +52,7 @@ static int current_lf = 0;
 static int current_rf = 0;
 static int current_lr = 0;
 static int current_rr = 0;
+static bool loopkey_gear_shift_armed = false;
 
 static int loopkey_clamp_motor_speed(int speed) {
   if (speed < MOTOR_SPEED_MIN) return MOTOR_SPEED_MIN;
@@ -122,12 +123,21 @@ static int loopkey_approach_speed(int current, int target) {
 static void loopkey_update_gear_by_right_y(void) {
   int gear_axis = GEAR_AXIS_SIGN * loopkey_apply_deadzone(PS2_RIGHT_Y);
 
+  // 回到中间区后解锁一次换挡
+  if (gear_axis < GEAR_HIGH_THRESHOLD && gear_axis > GEAR_LOW_THRESHOLD) {
+    loopkey_gear_shift_armed = true;
+    return;
+  }
+
+  // 未解锁时忽略，避免持续推杆连跳
+  if (!loopkey_gear_shift_armed) return;
+
   if (gear_axis >= GEAR_HIGH_THRESHOLD) {
-    g_speed_gear = 2;   // 高速挡
+    if (g_speed_gear < 2) g_speed_gear++;   // 升高一档
+    loopkey_gear_shift_armed = false;
   } else if (gear_axis <= GEAR_LOW_THRESHOLD) {
-    g_speed_gear = 0;   // 低速挡
-  } else {
-    g_speed_gear = 1;   // 中速挡
+    if (g_speed_gear > 0) g_speed_gear--;   // 降低一档
+    loopkey_gear_shift_armed = false;
   }
 }
 

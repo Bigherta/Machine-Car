@@ -6,17 +6,13 @@
   函数名称: uart_init()
   功能介绍: 初始化串口
  ***********************************************/
-void uart_init(u32 baud) {
-  Serial.begin(baud);
-}
+void uart_init(u32 baud) { Serial.begin(baud); }
 
 /***********************************************
   函数名称: uart_send_byte()
   功能介绍: 串口发送字节
  ***********************************************/
-void uart_send_byte(u8 dat) {
-  Serial.write(dat);
-}
+void uart_send_byte(u8 dat) { Serial.write(dat); }
 
 /***********************************************
   函数名称: uart_send_str()
@@ -32,14 +28,10 @@ void uart_send_str(const char *s) {
   函数名称: uart_send_str()
   功能介绍: 串口发送字符串（u8* 版本）
  ***********************************************/
-void uart_send_str(u8 *s) {
-  uart_send_str((const char *)s);
-}
+void uart_send_str(u8 *s) { uart_send_str((const char *)s); }
 
 /***********************************************
   函数名称: uart_send_int()
   功能介绍: 串口发送数字
  ***********************************************/
-void uart_send_int(int tmp) {
-  Serial.print(tmp);
-}
+void uart_send_int(int tmp) { Serial.print(tmp); }

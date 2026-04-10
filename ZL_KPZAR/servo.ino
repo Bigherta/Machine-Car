@@ -1,5 +1,5 @@
-#include <Servo.h>
 #include <PS2X_lib.h>
+#include <Servo.h>
 
 extern bool g_ps2_link_ok;
 extern PS2X ps2;
@@ -7,17 +7,17 @@ extern PS2X ps2;
 Servo servos[6];
 
 const uint8_t SERVO_PINS[6] = {
-  7,  // 0号接口
-  3,  // 1号接口
-  5,  // 2号接口
-  6,  // 3号接口
-  9,  // 4号接口
-  8   // 5号接口
+    7, // 0号接口
+    3, // 1号接口
+    5, // 2号接口
+    6, // 3号接口
+    9, // 4号接口
+    8  // 5号接口
 };
 
-const int SERVO_MIN_US    = 1000;
+const int SERVO_MIN_US = 1000;
 const int SERVO_CENTER_US = 1500;
-const int SERVO_MAX_US    = 2000;
+const int SERVO_MAX_US = 2000;
 
 // 按住按键时，每次目标值变化的幅度
 const int TARGET_STEP_US = 8;
@@ -28,15 +28,11 @@ const int MOVE_STEP_US = 2;
 // 多久真正写一次舵机
 const unsigned long MOVE_UPDATE_MS = 20;
 
-int servoTargetUs[6] = {
-  SERVO_CENTER_US, SERVO_CENTER_US, SERVO_CENTER_US,
-  SERVO_CENTER_US, SERVO_CENTER_US, SERVO_CENTER_US
-};
+int servoTargetUs[6] = {SERVO_CENTER_US, SERVO_CENTER_US, SERVO_CENTER_US,
+                        SERVO_CENTER_US, SERVO_CENTER_US, SERVO_CENTER_US};
 
-int servoCurrentUs[6] = {
-  SERVO_CENTER_US, SERVO_CENTER_US, SERVO_CENTER_US,
-  SERVO_CENTER_US, SERVO_CENTER_US, SERVO_CENTER_US
-};
+int servoCurrentUs[6] = {SERVO_CENTER_US, SERVO_CENTER_US, SERVO_CENTER_US,
+                         SERVO_CENTER_US, SERVO_CENTER_US, SERVO_CENTER_US};
 
 unsigned long lastTargetUpdate = 0;
 unsigned long lastMoveUpdate = 0;
@@ -55,8 +51,10 @@ void centerAllServos(bool writeNow) {
 
 void clampAllTargets() {
   for (int i = 0; i < 6; i++) {
-    if (servoTargetUs[i] < SERVO_MIN_US) servoTargetUs[i] = SERVO_MIN_US;
-    if (servoTargetUs[i] > SERVO_MAX_US) servoTargetUs[i] = SERVO_MAX_US;
+    if (servoTargetUs[i] < SERVO_MIN_US)
+      servoTargetUs[i] = SERVO_MIN_US;
+    if (servoTargetUs[i] > SERVO_MAX_US)
+      servoTargetUs[i] = SERVO_MAX_US;
   }
 }
 
@@ -77,7 +75,8 @@ void updateOneServo(uint8_t index) {
 }
 
 void updateServosSmoothly() {
-  if (millis() - lastMoveUpdate < MOVE_UPDATE_MS) return;
+  if (millis() - lastMoveUpdate < MOVE_UPDATE_MS)
+    return;
   lastMoveUpdate = millis();
 
   for (int i = 0; i < 6; i++) {
@@ -86,7 +85,8 @@ void updateServosSmoothly() {
 }
 
 void handlePadControl() {
-  if (!g_ps2_link_ok) return;
+  if (!g_ps2_link_ok)
+    return;
 
   if (millis() - lastTargetUpdate >= TARGET_UPDATE_MS) {
     lastTargetUpdate = millis();
