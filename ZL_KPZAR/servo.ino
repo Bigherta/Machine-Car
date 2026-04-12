@@ -15,18 +15,18 @@ const uint8_t SERVO_PINS[6] = {
     8  // 5号接口
 };
 
-const int SERVO_MIN_US = 1000;
+const int SERVO_MIN_US = 600;
 const int SERVO_CENTER_US = 1500;
-const int SERVO_MAX_US = 2000;
+const int SERVO_MAX_US = 2400;
 
 // 按住按键时，每次目标值变化的幅度
-const int TARGET_STEP_US = 8;
+const int TARGET_STEP_US = 20;
 // 多久允许更新一次目标值
-const unsigned long TARGET_UPDATE_MS = 80;
+const unsigned long TARGET_UPDATE_MS = 10;
 // 舵机每次逼近目标值的步长
-const int MOVE_STEP_US = 2;
+const int MOVE_STEP_US = 25;
 // 多久真正写一次舵机
-const unsigned long MOVE_UPDATE_MS = 20;
+const unsigned long MOVE_UPDATE_MS = 10;
 
 int servoTargetUs[6] = {SERVO_CENTER_US, SERVO_CENTER_US, SERVO_CENTER_US,
                         SERVO_CENTER_US, SERVO_CENTER_US, SERVO_CENTER_US};
@@ -119,11 +119,11 @@ void handlePadControl() {
     }
 
     // 2号接口：三角 / 叉
-    if (ps2.Button(PSB_TRIANGLE)) {
+    if (ps2.Button(PSB_CROSS)) {
       servoTargetUs[2] += TARGET_STEP_US;
       changed = true;
     }
-    if (ps2.Button(PSB_CROSS)) {
+    if (ps2.Button(PSB_TRIANGLE)) {
       servoTargetUs[2] -= TARGET_STEP_US;
       changed = true;
     }
