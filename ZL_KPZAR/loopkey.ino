@@ -193,8 +193,9 @@ static int loopkey_compute_encoder_brake_torque(int throttle, int strafe, int ro
     return 0;
   }
 
+  long speed_magnitude = labs((long)g_vehicle_speed);
   long torque_long = (long)ENCODER_BRAKE_BASE +
-                     (long)abs(g_vehicle_speed) * (long)ENCODER_BRAKE_KP;
+                     speed_magnitude * (long)ENCODER_BRAKE_KP;
   if (torque_long > ENCODER_BRAKE_MAX) {
     torque_long = ENCODER_BRAKE_MAX;
   }
