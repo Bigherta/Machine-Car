@@ -63,20 +63,26 @@ const int REAR_ZMOTOR_REV_GAIN_DEN  = 10;
 #define ROTATE_SIGN    -1
 #define STRAFE_SIGN    1
 
-// ================= 防后溜参数 =================
-// g_vehicle_speed 是“每20ms平均编码器增量”的滤波值
+// ================= 主动抱死（驻车）参数 =================
+// 编码器反馈变量
 extern int g_vehicle_speed;
+extern volatile long g_left_encoder_ticks;
+extern volatile long g_right_encoder_ticks;
 
-// 只有在手柄指令很小、接近松杆时，才允许进入防后溜
-const int ANTI_BACK_CMD_DZ = 80;
+// 摇杆所有轴都在这个范围内才算”松杆”
+const int BRAKE_CMD_DEADZONE = 80;
 
-// 小于这个值，判定为已经在向后溜
-const int ANTI_BACK_SPEED_THRESHOLD = -2;
+// PD 驻车控制参数（编码器脉冲 → 电机速度指令）
+//   KP 越大 → 位置保持越硬（偏移恢复越快），但太大会振荡
+//   KD 越大 → 阻尼越强（减速越猛），抑制振荡
+//   MAX_TORQUE 限制最大输出，防止电机过载
+const int BRAKE_POSITION_KP = 50;
+const int BRAKE_SPEED_KD    = 30;
+const int BRAKE_MAX_TORQUE  = 500;
 
-// 防后溜输出 = 基础值 + (-速度)*比例，然后再限幅
-const int ANTI_BACK_BASE = 90;
-const int ANTI_BACK_KP   = 18;
-const int ANTI_BACK_MAX  = 260;
+static bool g_brake_holding    = false;
+static long g_brake_hold_left  = 0;
+static long g_brake_hold_right = 0;
 
 static int current_lf = 0;
 static int current_rf = 0;
@@ -179,28 +185,6 @@ static void loopkey_update_gear_by_right_y(void) {
   }
 }
 
-static int loopkey_compute_anti_back_torque(int throttle, int strafe, int rotate) {
-  bool command_near_zero =
-      (abs(throttle) < ANTI_BACK_CMD_DZ) &&
-      (abs(strafe)   < ANTI_BACK_CMD_DZ) &&
-      (abs(rotate)   < ANTI_BACK_CMD_DZ);
-
-  if (!command_near_zero) {
-    return 0;
-  }
-
-  if (g_vehicle_speed >= ANTI_BACK_SPEED_THRESHOLD) {
-    return 0;
-  }
-
-  int torque = ANTI_BACK_BASE + (-g_vehicle_speed) * ANTI_BACK_KP;
-
-  if (torque > ANTI_BACK_MAX) {
-    torque = ANTI_BACK_MAX;
-  }
-
-  return torque;
-}
 
 void loop_key(void) {
   // ===== 按右摇杆Y选择挡位 =====
@@ -255,13 +239,48 @@ void loop_key(void) {
   target_lr = loopkey_clamp_motor_speed(loopkey_apply_rear_zmotor_scale(target_lr));
   target_rr = loopkey_clamp_motor_speed(loopkey_apply_rear_zmotor_scale(target_rr));
 
-  // ===== 防后溜：检测到车在向后溜时，给一个实时前向扭矩 =====
-  int anti_back_torque = loopkey_compute_anti_back_torque(throttle, strafe, rotate);
-  if (anti_back_torque != 0) {
-    target_lf = loopkey_clamp_motor_speed(target_lf + anti_back_torque);
-    target_rf = loopkey_clamp_motor_speed(target_rf + anti_back_torque);
-    target_lr = loopkey_clamp_motor_speed(target_lr + anti_back_torque);
-    target_rr = loopkey_clamp_motor_speed(target_rr + anti_back_torque);
+  // ===== 主动抱死：松杆时用 PD 控制锁住当前位置 =====
+  bool joystick_released =
+      (abs(throttle) < BRAKE_CMD_DEADZONE) &&
+      (abs(strafe)   < BRAKE_CMD_DEADZONE) &&
+      (abs(rotate)   < BRAKE_CMD_DEADZONE);
+
+  if (joystick_released) {
+    if (!g_brake_holding) {
+      // 刚松杆：记录当前编码器位置作为锁定点
+      noInterrupts();
+      g_brake_hold_left  = g_left_encoder_ticks;
+      g_brake_hold_right = g_right_encoder_ticks;
+      interrupts();
+      g_brake_holding = true;
+    }
+
+    // 读取当前编码器位置
+    long left_now, right_now;
+    noInterrupts();
+    left_now  = g_left_encoder_ticks;
+    right_now = g_right_encoder_ticks;
+    interrupts();
+
+    // 位置误差（正 = 相对锁定点向前偏移了）
+    long pos_err = ((left_now - g_brake_hold_left)
+                  + (right_now - g_brake_hold_right)) / 2;
+
+    // PD 控制：扭矩 = -Kp × 位置误差 - Kd × 当前速度
+    //   位置偏了 → P 项把车拉回来
+    //   还在动   → D 项提供阻尼，防止振荡
+    int torque = (int)(-(long)BRAKE_POSITION_KP * pos_err
+                       - (long)BRAKE_SPEED_KD * (long)g_vehicle_speed);
+
+    if (torque >  BRAKE_MAX_TORQUE) torque =  BRAKE_MAX_TORQUE;
+    if (torque < -BRAKE_MAX_TORQUE) torque = -BRAKE_MAX_TORQUE;
+
+    target_lf = loopkey_clamp_motor_speed(torque);
+    target_rf = loopkey_clamp_motor_speed(torque);
+    target_lr = loopkey_clamp_motor_speed(torque);
+    target_rr = loopkey_clamp_motor_speed(torque);
+  } else {
+    g_brake_holding = false;
   }
 
   // ===== 平滑过渡 =====
