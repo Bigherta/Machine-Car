@@ -83,18 +83,23 @@ int origin_left_x;
 int origin_right_x;
 int origin_left_y;
 int origin_right_y;
+
 void setup(void) { // ZL
   setup_motor();
   setup_uart(); // 初始化串口
   setup_ps2();
   setup_servo();
+  setup_encoder_feedback();
+
   origin_left_x = PS2_LEFT_X_RAW;
   origin_right_x = PS2_RIGHT_X_RAW;
   origin_left_y = PS2_LEFT_Y_RAW;
   origin_right_y = PS2_RIGHT_Y_RAW;
 }
+
 void loop(void) {
-  loop_ps2(); // 循环检测手柄状态
+  loop_ps2();              // 循环检测手柄状态
+  loop_encoder_feedback(); // 实时更新编码器速度
   loop_key();
   loop_servo();
   delay(10);
