@@ -68,10 +68,10 @@ const int REAR_ZMOTOR_REV_GAIN_DEN  = 10;
 extern int g_vehicle_speed;
 
 // 只有在手柄指令很小、接近松杆时，才允许进入主动制动
-const int ENCODER_BRAKE_CMD_DZ = 80;
+const int ENCODER_BRAKE_CMD_DEADZONE = 80;
 
 // 速度绝对值低于该阈值时，不施加主动制动，防止静止抖动
-const int ENCODER_BRAKE_SPEED_DZ = 2;
+const int ENCODER_BRAKE_SPEED_DEADZONE = 2;
 
 // 主动制动输出 = 基础值 + 速度绝对值*比例，再限幅
 const int ENCODER_BRAKE_BASE = 90;
@@ -181,15 +181,15 @@ static void loopkey_update_gear_by_right_y(void) {
 
 static int loopkey_compute_encoder_brake_torque(int throttle, int strafe, int rotate) {
   bool command_near_zero =
-      (abs(throttle) < ENCODER_BRAKE_CMD_DZ) &&
-      (abs(strafe)   < ENCODER_BRAKE_CMD_DZ) &&
-      (abs(rotate)   < ENCODER_BRAKE_CMD_DZ);
+      (abs(throttle) < ENCODER_BRAKE_CMD_DEADZONE) &&
+      (abs(strafe)   < ENCODER_BRAKE_CMD_DEADZONE) &&
+      (abs(rotate)   < ENCODER_BRAKE_CMD_DEADZONE);
 
   if (!command_near_zero) {
     return 0;
   }
 
-  if (abs(g_vehicle_speed) <= ENCODER_BRAKE_SPEED_DZ) {
+  if (abs(g_vehicle_speed) < ENCODER_BRAKE_SPEED_DEADZONE) {
     return 0;
   }
 
