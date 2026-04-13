@@ -35,7 +35,7 @@ volatile long g_right_encoder_ticks = 0;
 
 volatile uint8_t g_encoder_prev_left_state  = 0;
 volatile uint8_t g_encoder_prev_right_state = 0;
-volatile uint8_t g_encoder_transition_latched = 0;
+volatile bool g_encoder_transition_flag = false;
 
 long g_left_speed_raw  = 0;   // 每20ms的脉冲增量
 long g_right_speed_raw = 0;   // 每20ms的脉冲增量
@@ -69,6 +69,8 @@ void setup_encoder_feedback(void) {
       ((digitalRead(ENC_RIGHT_A) ? 1 : 0) << 1) |
        (digitalRead(ENC_RIGHT_B) ? 1 : 0);
 
+  g_last_encoder_transition_ms = millis();
+
   // A1/A2/A4/A5 都在 PORTC，上升沿/下降沿变化都触发 PCINT1_vect
   PCICR  |= (1 << PCIE1);  // 开启 PORTC 的 Pin Change Interrupt
   PCMSK1 |= (1 << PCINT9)  // A1
@@ -93,7 +95,7 @@ ISR(PCINT1_vect) {
 
   if (left_delta != 0) {
     g_left_encoder_ticks += (long)(left_delta * ENC_LEFT_SIGN);
-    g_encoder_transition_latched = 1;
+    g_encoder_transition_flag = true;
     g_encoder_prev_left_state = left_state;
   } else {
     g_encoder_prev_left_state = left_state;
@@ -101,7 +103,7 @@ ISR(PCINT1_vect) {
 
   if (right_delta != 0) {
     g_right_encoder_ticks += (long)(right_delta * ENC_RIGHT_SIGN);
-    g_encoder_transition_latched = 1;
+    g_encoder_transition_flag = true;
     g_encoder_prev_right_state = right_state;
   } else {
     g_encoder_prev_right_state = right_state;
@@ -140,12 +142,12 @@ void loop_encoder_feedback(void) {
   // 一阶低通滤波，减小抖动
   g_vehicle_speed = (g_vehicle_speed * 3 + instant_vehicle_speed) / 4;
 
-  uint8_t transition_seen;
+  bool transition_seen;
   noInterrupts();
-  transition_seen = g_encoder_transition_latched;
-  g_encoder_transition_latched = 0;
+  transition_seen = g_encoder_transition_flag;
+  g_encoder_transition_flag = false;
   interrupts();
-  if (transition_seen != 0) {
+  if (transition_seen) {
     g_last_encoder_transition_ms = last_update_ms;
   }
 
