@@ -149,14 +149,11 @@ void loop_encoder_feedback(void) {
     g_last_encoder_transition_ms = last_update_ms;
   }
 
-  bool alive_now = (last_update_ms - g_last_encoder_transition_ms) <= ENCODER_DECODE_ALIVE_TIMEOUT_MS;
+  unsigned long transition_age_ms = last_update_ms - g_last_encoder_transition_ms;
+  bool alive_now = transition_age_ms < ENCODER_DECODE_ALIVE_TIMEOUT_MS;
   g_encoder_decode_alive = alive_now;
 }
 
 bool encoder_decode_is_alive(void) {
-  bool alive;
-  noInterrupts();
-  alive = g_encoder_decode_alive;
-  interrupts();
-  return alive;
+  return g_encoder_decode_alive;
 }
