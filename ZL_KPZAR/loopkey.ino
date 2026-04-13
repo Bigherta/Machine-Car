@@ -194,19 +194,18 @@ static int loopkey_compute_brake_torque(int throttle, int strafe, int rotate) {
     return 0;
   }
 
-  int speed = g_vehicle_speed;
-  if (abs(speed) <= BRAKE_SPEED_DEADZONE) {
+  if (abs(g_vehicle_speed) <= BRAKE_SPEED_DEADZONE) {
     return 0;
   }
 
-  int torque = BRAKE_BASE + abs(speed) * BRAKE_KP;
+  int torque = BRAKE_BASE + abs(g_vehicle_speed) * BRAKE_KP;
 
   if (torque > BRAKE_MAX) {
     torque = BRAKE_MAX;
   }
 
   // 与当前运动方向相反，形成主动刹车
-  return speed > 0 ? -torque : torque;
+  return g_vehicle_speed > 0 ? -torque : torque;
 }
 
 void loop_key(void) {

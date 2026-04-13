@@ -69,8 +69,6 @@ void setup_encoder_feedback(void) {
       ((digitalRead(ENC_RIGHT_A) ? 1 : 0) << 1) |
        (digitalRead(ENC_RIGHT_B) ? 1 : 0);
 
-  g_last_encoder_transition_ms = millis();
-
   // A1/A2/A4/A5 都在 PORTC，上升沿/下降沿变化都触发 PCINT1_vect
   PCICR  |= (1 << PCIE1);  // 开启 PORTC 的 Pin Change Interrupt
   PCMSK1 |= (1 << PCINT9)  // A1
@@ -151,8 +149,11 @@ void loop_encoder_feedback(void) {
     g_last_encoder_transition_ms = last_update_ms;
   }
 
-  unsigned long transition_age_ms = (unsigned long)(last_update_ms - g_last_encoder_transition_ms);
-  bool alive_now = transition_age_ms < ENCODER_DECODE_ALIVE_TIMEOUT_MS;
+  bool alive_now = false;
+  if (g_last_encoder_transition_ms != 0) {
+    unsigned long transition_age_ms = (unsigned long)(last_update_ms - g_last_encoder_transition_ms);
+    alive_now = transition_age_ms < ENCODER_DECODE_ALIVE_TIMEOUT_MS;
+  }
   g_encoder_decode_alive = alive_now;
 }
 
