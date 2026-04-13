@@ -70,7 +70,7 @@ extern int g_vehicle_speed;
 // 只有在手柄指令很小、接近松杆时，才允许进入主动制动
 const int ENCODER_BRAKE_CMD_DEADZONE = 80;
 
-// 速度绝对值低于该阈值时，不施加主动制动，防止静止抖动
+// 速度绝对值落在该死区内时，不施加主动制动，防止静止抖动
 const int ENCODER_BRAKE_SPEED_DEADZONE = 2;
 
 // 主动制动输出 = 基础值 + 速度绝对值*比例，再限幅
@@ -193,11 +193,13 @@ static int loopkey_compute_encoder_brake_torque(int throttle, int strafe, int ro
     return 0;
   }
 
-  int torque = ENCODER_BRAKE_BASE + abs(g_vehicle_speed) * ENCODER_BRAKE_KP;
-
-  if (torque > ENCODER_BRAKE_MAX) {
-    torque = ENCODER_BRAKE_MAX;
+  long torque_long = (long)ENCODER_BRAKE_BASE +
+                     (long)abs(g_vehicle_speed) * (long)ENCODER_BRAKE_KP;
+  if (torque_long > ENCODER_BRAKE_MAX) {
+    torque_long = ENCODER_BRAKE_MAX;
   }
+
+  int torque = (int)torque_long;
 
   return (g_vehicle_speed > 0) ? -torque : torque;
 }
