@@ -28,6 +28,7 @@
 
 // ================= 速度滤波参数 =================
 const unsigned long ENCODER_SPEED_UPDATE_MS = 20;  // 50Hz 更新速度
+const unsigned long ENCODER_DECODE_ALIVE_TIMEOUT_MS = 300;
 
 volatile long g_left_encoder_ticks  = 0;
 volatile long g_right_encoder_ticks = 0;
@@ -39,7 +40,8 @@ volatile bool g_encoder_transition_seen = false;
 long g_left_speed_raw  = 0;   // 每20ms的脉冲增量
 long g_right_speed_raw = 0;   // 每20ms的脉冲增量
 int  g_vehicle_speed   = 0;   // 左右平均后的滤波速度，正=前进，负=后退
-bool g_encoder_decode_alive = false; // 观察到有效AB跳变后置为true
+volatile bool g_encoder_decode_alive = false;
+unsigned long g_last_encoder_transition_ms = 0;
 
 static const int8_t QUAD_TABLE[16] = {
   0, -1,  1,  0,
@@ -138,16 +140,23 @@ void loop_encoder_feedback(void) {
   // 一阶低通滤波，减小抖动
   g_vehicle_speed = (g_vehicle_speed * 3 + instant_vehicle_speed) / 4;
 
-  bool seen_transition = false;
+  bool seen_transition;
   noInterrupts();
   seen_transition = g_encoder_transition_seen;
   g_encoder_transition_seen = false;
   interrupts();
   if (seen_transition) {
-    g_encoder_decode_alive = true;
+    g_last_encoder_transition_ms = last_update_ms;
   }
+
+  bool alive_now = (last_update_ms - g_last_encoder_transition_ms) <= ENCODER_DECODE_ALIVE_TIMEOUT_MS;
+  g_encoder_decode_alive = alive_now;
 }
 
 bool encoder_decode_is_alive(void) {
-  return g_encoder_decode_alive;
+  bool alive;
+  noInterrupts();
+  alive = g_encoder_decode_alive;
+  interrupts();
+  return alive;
 }
