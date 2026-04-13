@@ -14,7 +14,6 @@
 ****************************************************************************/
 
 #include <Arduino.h>
-#include <limits.h>
 
 // ================= 编码器接线定义 =================
 #define ENC_LEFT_A   A1
@@ -36,7 +35,7 @@ volatile long g_right_encoder_ticks = 0;
 
 volatile uint8_t g_encoder_prev_left_state  = 0;
 volatile uint8_t g_encoder_prev_right_state = 0;
-volatile uint8_t g_encoder_transition_seq = 0;
+volatile uint8_t g_encoder_transition_latched = 0;
 
 long g_left_speed_raw  = 0;   // 每20ms的脉冲增量
 long g_right_speed_raw = 0;   // 每20ms的脉冲增量
@@ -94,7 +93,7 @@ ISR(PCINT1_vect) {
 
   if (left_delta != 0) {
     g_left_encoder_ticks += (long)(left_delta * ENC_LEFT_SIGN);
-    g_encoder_transition_seq++;
+    g_encoder_transition_latched = 1;
     g_encoder_prev_left_state = left_state;
   } else {
     g_encoder_prev_left_state = left_state;
@@ -102,7 +101,7 @@ ISR(PCINT1_vect) {
 
   if (right_delta != 0) {
     g_right_encoder_ticks += (long)(right_delta * ENC_RIGHT_SIGN);
-    g_encoder_transition_seq++;
+    g_encoder_transition_latched = 1;
     g_encoder_prev_right_state = right_state;
   } else {
     g_encoder_prev_right_state = right_state;
@@ -113,7 +112,6 @@ void loop_encoder_feedback(void) {
   static unsigned long last_update_ms = 0;
   static long last_left_ticks = 0;
   static long last_right_ticks = 0;
-  static uint8_t last_transition_seq = 0;
 
   if (millis() - last_update_ms < ENCODER_SPEED_UPDATE_MS) {
     return;
@@ -142,21 +140,16 @@ void loop_encoder_feedback(void) {
   // 一阶低通滤波，减小抖动
   g_vehicle_speed = (g_vehicle_speed * 3 + instant_vehicle_speed) / 4;
 
-  uint8_t transition_seq_now;
+  uint8_t transition_seen;
   noInterrupts();
-  transition_seq_now = g_encoder_transition_seq;
+  transition_seen = g_encoder_transition_latched;
+  g_encoder_transition_latched = 0;
   interrupts();
-  if (transition_seq_now != last_transition_seq) {
-    last_transition_seq = transition_seq_now;
+  if (transition_seen != 0) {
     g_last_encoder_transition_ms = last_update_ms;
   }
 
-  unsigned long transition_age_ms;
-  if (last_update_ms >= g_last_encoder_transition_ms) {
-    transition_age_ms = last_update_ms - g_last_encoder_transition_ms;
-  } else {
-    transition_age_ms = (ULONG_MAX - g_last_encoder_transition_ms + 1UL) + last_update_ms;
-  }
+  unsigned long transition_age_ms = (unsigned long)(last_update_ms - g_last_encoder_transition_ms);
   bool alive_now = transition_age_ms < ENCODER_DECODE_ALIVE_TIMEOUT_MS;
   g_encoder_decode_alive = alive_now;
 }
