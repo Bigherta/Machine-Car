@@ -72,11 +72,11 @@ const int PARK_EXIT_CMD_DZ = 45;
 const unsigned long PARK_ENTER_HOLD_MS = 350;
 
 const int PARK_SPEED_DEADZONE = 1;
-const int PARK_HOLD_KP = 32;
-const int PARK_MIN_HOLD_TORQUE = 70;
-const int PARK_MAX_TORQUE = 320;
+const int PARK_HOLD_KP = 45;
+const int PARK_MIN_HOLD_TORQUE = 110;
+const int PARK_MAX_TORQUE = 420;
 const unsigned long PARK_TORQUE_DERATE_DELAY_MS = 3500;
-const int PARK_MAX_TORQUE_DERATED = 220;
+const int PARK_MAX_TORQUE_DERATED = 300;
 
 const int PARK_SLEW_ACCEL_STEP = 80;
 const int PARK_SLEW_DECEL_STEP = 120;

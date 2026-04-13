@@ -21,7 +21,7 @@
 #define BUS_PWM_STOP 1500
 #define BUS_PWM_MIN_OFFSET 200
 #define BUS_PWM_MAX_OFFSET 900
-const int PARKING_MODE_SPEED_LIMIT = 260;
+const int PARKING_MODE_SPEED_LIMIT = 340;
 
 extern bool g_parking_mode_active;
 
