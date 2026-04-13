@@ -129,7 +129,7 @@ bool encoder_check_encode_decode(uint8_t pin_a, uint8_t pin_b,
 }
 
 // 在前后运动时输出编码器采样信息。
-// throttle_cmd：前后速度指令（>0 前进，<0 后退，=0 不输出）。
+// throttle_cmd：前后速度指令（>0 前进，<0 后退；调用方保证非 0）。
 // 行为：按 ENCODER_MONITOR_PRINT_INTERVAL_MS 限频打印；A/B 引脚需先在上方配置。
 void encoder_print_during_drive(int throttle_cmd) {
   if (ENCODER_MONITOR_PIN_A < 0 || ENCODER_MONITOR_PIN_B < 0) return;
@@ -138,7 +138,8 @@ void encoder_print_during_drive(int throttle_cmd) {
       ENCODER_MONITOR_PIN_B >= NUM_DIGITAL_PINS) return;
 #endif
 
-  // 本函数仅在主 loop 单一调用路径下使用。
+  // 使用 static 限频状态，要求单一顺序调用路径（当前为主 loop）；
+  // 若并发/多路径调用，会导致限频节奏不准确。
   static unsigned long last_print_ms = 0;
   unsigned long now = millis();
   if (now - last_print_ms < ENCODER_MONITOR_PRINT_INTERVAL_MS) return;
