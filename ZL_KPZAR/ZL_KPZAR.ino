@@ -84,7 +84,7 @@ int origin_right_x;
 int origin_left_y;
 int origin_right_y;
 
-// 编码器监视器引脚（按你的接线修改）
+// 编码器监视器引脚：默认 D2=编码器A 相，D4=编码器B 相（按你的接线修改）
 const uint8_t ENCODER_MONITOR_PIN_A = 2;
 const uint8_t ENCODER_MONITOR_PIN_B = 4;
 void setup(void) { // ZL
