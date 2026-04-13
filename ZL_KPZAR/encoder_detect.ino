@@ -111,6 +111,11 @@ bool encoder_check_encode_decode(uint8_t pin_a, uint8_t pin_b,
   bool decode_ok = (valid_steps > 0) &&
                    (valid_steps >=
                     (invalid_steps * ENCODER_VALID_STEPS_PER_INVALID_STEP));
-  return has_signal && decode_ok && direction_stable &&
-         (transitions >= min_transitions);
+  bool result = has_signal && decode_ok && direction_stable &&
+                (transitions >= min_transitions);
+
+  if (result) {
+    Serial.println("encoder_check_encode_decode=true");
+  }
+  return result;
 }
