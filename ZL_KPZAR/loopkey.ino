@@ -195,6 +195,7 @@ static int loopkey_approach_speed_with_steps(int current, int target, int accel_
 }
 
 static bool loopkey_elapsed_ms(unsigned long start_ms, unsigned long duration_ms) {
+  // start_ms=0 表示计时器未启动；millis() 相减使用无符号算术，溢出后依然安全。
   if (start_ms == 0) return false;
   return (unsigned long)(millis() - start_ms) >= duration_ms;
 }
