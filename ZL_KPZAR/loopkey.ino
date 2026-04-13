@@ -66,17 +66,18 @@ const int REAR_ZMOTOR_REV_GAIN_DEN  = 10;
 // ================= 防后溜参数 =================
 // g_vehicle_speed 是“每20ms平均编码器增量”的滤波值
 extern int g_vehicle_speed;
+extern bool encoder_decode_is_alive(void);
 
-// 只有在手柄指令很小、接近松杆时，才允许进入防后溜
-const int ANTI_BACK_CMD_DZ = 80;
+// 只有在手柄指令很小、接近松杆时，才允许进入主动制动
+const int BRAKE_CMD_DZ = 80;
 
-// 小于这个值，判定为已经在向后溜
-const int ANTI_BACK_SPEED_THRESHOLD = -2;
+// 速度绝对值很小时不再额外施加制动扭矩
+const int BRAKE_SPEED_DEADZONE = 1;
 
-// 防后溜输出 = 基础值 + (-速度)*比例，然后再限幅
-const int ANTI_BACK_BASE = 90;
-const int ANTI_BACK_KP   = 18;
-const int ANTI_BACK_MAX  = 260;
+// 主动制动输出 = 基础值 + |速度|*比例，然后反向施加到四轮
+const int BRAKE_BASE = 80;
+const int BRAKE_KP   = 22;
+const int BRAKE_MAX  = 280;
 
 static int current_lf = 0;
 static int current_rf = 0;
@@ -179,27 +180,33 @@ static void loopkey_update_gear_by_right_y(void) {
   }
 }
 
-static int loopkey_compute_anti_back_torque(int throttle, int strafe, int rotate) {
+static int loopkey_compute_brake_torque(int throttle, int strafe, int rotate) {
   bool command_near_zero =
-      (abs(throttle) < ANTI_BACK_CMD_DZ) &&
-      (abs(strafe)   < ANTI_BACK_CMD_DZ) &&
-      (abs(rotate)   < ANTI_BACK_CMD_DZ);
+      (abs(throttle) < BRAKE_CMD_DZ) &&
+      (abs(strafe)   < BRAKE_CMD_DZ) &&
+      (abs(rotate)   < BRAKE_CMD_DZ);
 
   if (!command_near_zero) {
     return 0;
   }
 
-  if (g_vehicle_speed >= ANTI_BACK_SPEED_THRESHOLD) {
+  if (!encoder_decode_is_alive()) {
     return 0;
   }
 
-  int torque = ANTI_BACK_BASE + (-g_vehicle_speed) * ANTI_BACK_KP;
-
-  if (torque > ANTI_BACK_MAX) {
-    torque = ANTI_BACK_MAX;
+  int speed = g_vehicle_speed;
+  if (abs(speed) <= BRAKE_SPEED_DEADZONE) {
+    return 0;
   }
 
-  return torque;
+  int torque = BRAKE_BASE + abs(speed) * BRAKE_KP;
+
+  if (torque > BRAKE_MAX) {
+    torque = BRAKE_MAX;
+  }
+
+  // 与当前运动方向相反，形成主动刹车
+  return speed > 0 ? -torque : torque;
 }
 
 void loop_key(void) {
@@ -255,13 +262,13 @@ void loop_key(void) {
   target_lr = loopkey_clamp_motor_speed(loopkey_apply_rear_zmotor_scale(target_lr));
   target_rr = loopkey_clamp_motor_speed(loopkey_apply_rear_zmotor_scale(target_rr));
 
-  // ===== 防后溜：检测到车在向后溜时，给一个实时前向扭矩 =====
-  int anti_back_torque = loopkey_compute_anti_back_torque(throttle, strafe, rotate);
-  if (anti_back_torque != 0) {
-    target_lf = loopkey_clamp_motor_speed(target_lf + anti_back_torque);
-    target_rf = loopkey_clamp_motor_speed(target_rf + anti_back_torque);
-    target_lr = loopkey_clamp_motor_speed(target_lr + anti_back_torque);
-    target_rr = loopkey_clamp_motor_speed(target_rr + anti_back_torque);
+  // ===== 主动制动：松杆时依据编码器速度反向给制动力 =====
+  int brake_torque = loopkey_compute_brake_torque(throttle, strafe, rotate);
+  if (brake_torque != 0) {
+    target_lf = loopkey_clamp_motor_speed(target_lf + brake_torque);
+    target_rf = loopkey_clamp_motor_speed(target_rf + brake_torque);
+    target_lr = loopkey_clamp_motor_speed(target_lr + brake_torque);
+    target_rr = loopkey_clamp_motor_speed(target_rr + brake_torque);
   }
 
   // ===== 平滑过渡 =====

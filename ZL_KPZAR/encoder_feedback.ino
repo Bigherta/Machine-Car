@@ -34,10 +34,12 @@ volatile long g_right_encoder_ticks = 0;
 
 volatile uint8_t g_encoder_prev_left_state  = 0;
 volatile uint8_t g_encoder_prev_right_state = 0;
+volatile bool g_encoder_transition_seen = false;
 
 long g_left_speed_raw  = 0;   // 每20ms的脉冲增量
 long g_right_speed_raw = 0;   // 每20ms的脉冲增量
 int  g_vehicle_speed   = 0;   // 左右平均后的滤波速度，正=前进，负=后退
+bool g_encoder_decode_alive = false; // 观察到有效AB跳变后置为true
 
 static const int8_t QUAD_TABLE[16] = {
   0, -1,  1,  0,
@@ -89,6 +91,7 @@ ISR(PCINT1_vect) {
 
   if (left_delta != 0) {
     g_left_encoder_ticks += (long)(left_delta * ENC_LEFT_SIGN);
+    g_encoder_transition_seen = true;
     g_encoder_prev_left_state = left_state;
   } else {
     g_encoder_prev_left_state = left_state;
@@ -96,6 +99,7 @@ ISR(PCINT1_vect) {
 
   if (right_delta != 0) {
     g_right_encoder_ticks += (long)(right_delta * ENC_RIGHT_SIGN);
+    g_encoder_transition_seen = true;
     g_encoder_prev_right_state = right_state;
   } else {
     g_encoder_prev_right_state = right_state;
@@ -133,4 +137,17 @@ void loop_encoder_feedback(void) {
 
   // 一阶低通滤波，减小抖动
   g_vehicle_speed = (g_vehicle_speed * 3 + instant_vehicle_speed) / 4;
+
+  bool seen_transition = false;
+  noInterrupts();
+  seen_transition = g_encoder_transition_seen;
+  g_encoder_transition_seen = false;
+  interrupts();
+  if (seen_transition) {
+    g_encoder_decode_alive = true;
+  }
+}
+
+bool encoder_decode_is_alive(void) {
+  return g_encoder_decode_alive;
 }
