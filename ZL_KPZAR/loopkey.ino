@@ -194,6 +194,10 @@ static int loopkey_approach_speed_with_steps(int current, int target, int accel_
   return target;
 }
 
+static bool loopkey_elapsed_ms(unsigned long start_ms, unsigned long duration_ms) {
+  return (unsigned long)(millis() - start_ms) >= duration_ms;
+}
+
 static void loopkey_update_gear_by_right_y(void) {
   int gear_axis = GEAR_AXIS_SIGN * loopkey_apply_deadzone(PS2_RIGHT_Y);
 
@@ -239,7 +243,7 @@ static void loopkey_update_parking_mode(int left_x, int left_y, int right_x) {
     return;
   }
 
-  if (now - g_park_idle_start_ms >= PARK_ENTER_HOLD_MS) {
+  if (loopkey_elapsed_ms(g_park_idle_start_ms, PARK_ENTER_HOLD_MS)) {
     g_parking_mode_active = true;
     g_park_mode_start_ms = now;
     g_park_idle_start_ms = 0;
@@ -260,7 +264,7 @@ static int loopkey_compute_park_hold_torque(void) {
   }
 
   int max_torque = PARK_MAX_TORQUE;
-  if (millis() - g_park_mode_start_ms >= PARK_TORQUE_DERATE_DELAY_MS) {
+  if (loopkey_elapsed_ms(g_park_mode_start_ms, PARK_TORQUE_DERATE_DELAY_MS)) {
     max_torque = PARK_MAX_TORQUE_DERATED;
   }
 
