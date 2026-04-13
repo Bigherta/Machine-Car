@@ -114,9 +114,21 @@ bool encoder_check_encode_decode(uint8_t pin_a, uint8_t pin_b,
   bool result = has_signal && decode_ok && direction_stable &&
                 (transitions >= min_transitions);
 
-  if (result) {
-    Serial.print("encoder_check_encode_decode=true");
-  }
-  else Serial.print("encoder_check_encode_decode=false");
+  Serial.print("ENC A=");
+  Serial.print(pin_a);
+  Serial.print(" B=");
+  Serial.print(pin_b);
+  Serial.print(" trans=");
+  Serial.print(transitions);
+  Serial.print(" valid=");
+  Serial.print(valid_steps);
+  Serial.print(" invalid=");
+  Serial.print(invalid_steps);
+  Serial.print(" ticks=");
+  Serial.print(ticks);
+  Serial.print(" dir=");
+  Serial.print(direction);
+  Serial.print(" ok=");
+  Serial.print(result ? 1 : 0);
   return result;
 }

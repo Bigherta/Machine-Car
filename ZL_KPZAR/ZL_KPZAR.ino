@@ -83,6 +83,10 @@ int origin_left_x;
 int origin_right_x;
 int origin_left_y;
 int origin_right_y;
+
+// 编码器监视器引脚（按你的接线修改）
+const uint8_t ENCODER_MONITOR_PIN_A = 2;
+const uint8_t ENCODER_MONITOR_PIN_B = 4;
 void setup(void) { // ZL
   setup_motor();
   setup_uart(); // 初始化串口
@@ -96,6 +100,7 @@ void setup(void) { // ZL
 void loop(void) {
   loop_ps2(); // 循环检测手柄状态
   loop_key();
+  loop_encoder_monitor();
   loop_servo();
   delay(10);
 }
