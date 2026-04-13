@@ -195,6 +195,7 @@ static int loopkey_approach_speed_with_steps(int current, int target, int accel_
 }
 
 static bool loopkey_elapsed_ms(unsigned long start_ms, unsigned long duration_ms) {
+  if (start_ms == 0) return false;
   return (unsigned long)(millis() - start_ms) >= duration_ms;
 }
 
@@ -260,7 +261,7 @@ static int loopkey_compute_park_hold_torque(void) {
   int abs_torque = abs(torque);
 
   if (abs_torque < PARK_MIN_HOLD_TORQUE) {
-    torque = torque >= 0 ? PARK_MIN_HOLD_TORQUE : -PARK_MIN_HOLD_TORQUE;
+    torque = speed > 0 ? -PARK_MIN_HOLD_TORQUE : PARK_MIN_HOLD_TORQUE;
   }
 
   int max_torque = PARK_MAX_TORQUE;
