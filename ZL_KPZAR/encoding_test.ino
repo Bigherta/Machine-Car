@@ -132,13 +132,13 @@ bool encoder_check_encode_decode(uint8_t pin_a, uint8_t pin_b,
 // throttle_cmd：前后速度指令（>0 前进，<0 后退，=0 不输出）。
 // 行为：按 ENCODER_MONITOR_PRINT_INTERVAL_MS 限频打印；A/B 引脚需先在上方配置。
 void encoder_print_during_drive(int throttle_cmd) {
-  if (throttle_cmd == 0) return;
   if (ENCODER_MONITOR_PIN_A < 0 || ENCODER_MONITOR_PIN_B < 0) return;
 #if defined(NUM_DIGITAL_PINS)
   if (ENCODER_MONITOR_PIN_A >= NUM_DIGITAL_PINS ||
       ENCODER_MONITOR_PIN_B >= NUM_DIGITAL_PINS) return;
 #endif
 
+  // 本函数仅在主 loop 单一调用路径下使用。
   static unsigned long last_print_ms = 0;
   unsigned long now = millis();
   if (now - last_print_ms < ENCODER_MONITOR_PRINT_INTERVAL_MS) return;

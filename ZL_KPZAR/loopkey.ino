@@ -225,7 +225,9 @@ void loop_key(void) {
 
   // ===== 输出到四个轮子 =====
   motor_set_wheels(current_lf, current_rf, current_lr, current_rr);
-  encoder_print_during_drive(throttle);
+  if (throttle != 0) {
+    encoder_print_during_drive(throttle);
+  }
 
   delay(10);
 }
