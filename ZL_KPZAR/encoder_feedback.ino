@@ -149,7 +149,12 @@ void loop_encoder_feedback(void) {
     g_last_encoder_transition_ms = last_update_ms;
   }
 
-  unsigned long transition_age_ms = last_update_ms - g_last_encoder_transition_ms;
+  unsigned long transition_age_ms;
+  if (last_update_ms >= g_last_encoder_transition_ms) {
+    transition_age_ms = last_update_ms - g_last_encoder_transition_ms;
+  } else {
+    transition_age_ms = (0xFFFFFFFFUL - g_last_encoder_transition_ms + 1UL) + last_update_ms;
+  }
   bool alive_now = transition_age_ms < ENCODER_DECODE_ALIVE_TIMEOUT_MS;
   g_encoder_decode_alive = alive_now;
 }
