@@ -1,5 +1,5 @@
 /****************************************************************************
-  编码器检测工具函数（A/B 相）
+  编码器检测工具函数（A/B 相位）
   用法：
   1) 先让电机以固定方向转动；
   2) 调用 encoder_check_encode_decode(pinA, pinB, 采样时长, 最小跳变数)；
@@ -8,7 +8,7 @@
 ****************************************************************************/
 
 const unsigned long ENCODER_SAMPLE_INTERVAL_US = 100;
-const unsigned long ENCODER_INVALID_TOLERANCE_DEN = 2;  // 允许最多 50% 非法跳变
+const unsigned long ENCODER_MAX_INVALID_RATIO_DENOMINATOR = 2;  // 允许最多 50% 非法跳变
 
 static int encoder_read_state(uint8_t pin_a, uint8_t pin_b) {
   return (digitalRead(pin_a) << 1) | digitalRead(pin_b);
@@ -109,8 +109,8 @@ bool encoder_check_encode_decode(uint8_t pin_a, uint8_t pin_b,
 
   bool has_signal = (transitions > 0);
   bool decode_ok = (valid_steps > 0) &&
-                   (invalid_steps <=
-                    (valid_steps / ENCODER_INVALID_TOLERANCE_DEN));
+                   ((invalid_steps * ENCODER_MAX_INVALID_RATIO_DENOMINATOR) <=
+                    valid_steps);
   return has_signal && decode_ok && direction_stable &&
          (transitions >= min_transitions);
 }
