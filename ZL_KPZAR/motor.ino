@@ -21,6 +21,9 @@
 #define BUS_PWM_STOP 1500
 #define BUS_PWM_MIN_OFFSET 200
 #define BUS_PWM_MAX_OFFSET 900
+const int PARKING_MODE_SPEED_LIMIT = 260;
+
+extern bool g_parking_mode_active;
 
 static int last_lf_cmd = 12345;
 static int last_rf_cmd = 12345;
@@ -65,6 +68,13 @@ static void bus_send_motor_cmd(u8 id, int pwm) {
 }
 
 static void set_one_bus_motor(u8 id, int speed, int dir_sign, int &last_cmd) {
+  if (g_parking_mode_active) {
+    if (speed > PARKING_MODE_SPEED_LIMIT)
+      speed = PARKING_MODE_SPEED_LIMIT;
+    if (speed < -PARKING_MODE_SPEED_LIMIT)
+      speed = -PARKING_MODE_SPEED_LIMIT;
+  }
+
   speed = motor_bus_clamp_speed(speed);
 
   if (speed == last_cmd)

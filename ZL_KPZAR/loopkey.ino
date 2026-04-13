@@ -63,20 +63,27 @@ const int REAR_ZMOTOR_REV_GAIN_DEN  = 10;
 #define ROTATE_SIGN    -1
 #define STRAFE_SIGN    1
 
-// ================= 防后溜参数 =================
+// ================= 驻车抗推参数 =================
 // g_vehicle_speed 是“每20ms平均编码器增量”的滤波值
 extern int g_vehicle_speed;
 
-// 只有在手柄指令很小、接近松杆时，才允许进入防后溜
-const int ANTI_BACK_CMD_DZ = 80;
+const int PARK_ENTER_CMD_DZ = 25;
+const int PARK_EXIT_CMD_DZ = 45;
+const unsigned long PARK_ENTER_HOLD_MS = 350;
 
-// 小于这个值，判定为已经在向后溜
-const int ANTI_BACK_SPEED_THRESHOLD = -2;
+const int PARK_SPEED_DEADZONE = 1;
+const int PARK_HOLD_KP = 32;
+const int PARK_MIN_HOLD_TORQUE = 70;
+const int PARK_MAX_TORQUE = 320;
+const unsigned long PARK_TORQUE_DERATE_DELAY_MS = 3500;
+const int PARK_MAX_TORQUE_DERATED = 220;
 
-// 防后溜输出 = 基础值 + (-速度)*比例，然后再限幅
-const int ANTI_BACK_BASE = 90;
-const int ANTI_BACK_KP   = 18;
-const int ANTI_BACK_MAX  = 260;
+const int PARK_SLEW_ACCEL_STEP = 80;
+const int PARK_SLEW_DECEL_STEP = 120;
+
+bool g_parking_mode_active = false;
+static unsigned long g_park_idle_start_ms = 0;
+static unsigned long g_park_mode_start_ms = 0;
 
 static int current_lf = 0;
 static int current_rf = 0;
@@ -167,6 +174,26 @@ static int loopkey_approach_speed(int current, int target) {
   return target;
 }
 
+static int loopkey_approach_speed_with_steps(int current, int target, int accel_step, int decel_step) {
+  int delta = target - current;
+  if (delta == 0) return current;
+
+  int step = decel_step;
+
+  bool same_direction = false;
+  if (current != 0 && target != 0) {
+    same_direction = ((current > 0 && target > 0) || (current < 0 && target < 0));
+  }
+
+  if (same_direction && abs(target) > abs(current)) {
+    step = accel_step;
+  }
+
+  if (delta > step)  return current + step;
+  if (delta < -step) return current - step;
+  return target;
+}
+
 static void loopkey_update_gear_by_right_y(void) {
   int gear_axis = GEAR_AXIS_SIGN * loopkey_apply_deadzone(PS2_RIGHT_Y);
 
@@ -179,30 +206,80 @@ static void loopkey_update_gear_by_right_y(void) {
   }
 }
 
-static int loopkey_compute_anti_back_torque(int throttle, int strafe, int rotate) {
-  bool command_near_zero =
-      (abs(throttle) < ANTI_BACK_CMD_DZ) &&
-      (abs(strafe)   < ANTI_BACK_CMD_DZ) &&
-      (abs(rotate)   < ANTI_BACK_CMD_DZ);
+static bool loopkey_drive_command_near_zero(int left_x, int left_y, int right_x) {
+  return (abs(left_x) < PARK_ENTER_CMD_DZ) &&
+         (abs(left_y) < PARK_ENTER_CMD_DZ) &&
+         (abs(right_x) < PARK_ENTER_CMD_DZ);
+}
 
-  if (!command_near_zero) {
+static bool loopkey_drive_command_active(int left_x, int left_y, int right_x) {
+  return (abs(left_x) > PARK_EXIT_CMD_DZ) ||
+         (abs(left_y) > PARK_EXIT_CMD_DZ) ||
+         (abs(right_x) > PARK_EXIT_CMD_DZ);
+}
+
+static void loopkey_update_parking_mode(int left_x, int left_y, int right_x) {
+  unsigned long now = millis();
+
+  if (g_parking_mode_active) {
+    if (loopkey_drive_command_active(left_x, left_y, right_x)) {
+      g_parking_mode_active = false;
+      g_park_idle_start_ms = 0;
+    }
+    return;
+  }
+
+  if (!loopkey_drive_command_near_zero(left_x, left_y, right_x)) {
+    g_park_idle_start_ms = 0;
+    return;
+  }
+
+  if (g_park_idle_start_ms == 0) {
+    g_park_idle_start_ms = now;
+    return;
+  }
+
+  if (now - g_park_idle_start_ms >= PARK_ENTER_HOLD_MS) {
+    g_parking_mode_active = true;
+    g_park_mode_start_ms = now;
+    g_park_idle_start_ms = 0;
+  }
+}
+
+static int loopkey_compute_park_hold_torque(void) {
+  int speed = g_vehicle_speed;
+  if (abs(speed) <= PARK_SPEED_DEADZONE) {
     return 0;
   }
 
-  if (g_vehicle_speed >= ANTI_BACK_SPEED_THRESHOLD) {
-    return 0;
+  int torque = -speed * PARK_HOLD_KP;
+  int abs_torque = abs(torque);
+
+  if (abs_torque < PARK_MIN_HOLD_TORQUE) {
+    torque = torque >= 0 ? PARK_MIN_HOLD_TORQUE : -PARK_MIN_HOLD_TORQUE;
   }
 
-  int torque = ANTI_BACK_BASE + (-g_vehicle_speed) * ANTI_BACK_KP;
+  int max_torque = PARK_MAX_TORQUE;
+  if (millis() - g_park_mode_start_ms >= PARK_TORQUE_DERATE_DELAY_MS) {
+    max_torque = PARK_MAX_TORQUE_DERATED;
+  }
 
-  if (torque > ANTI_BACK_MAX) {
-    torque = ANTI_BACK_MAX;
+  if (torque > max_torque) {
+    torque = max_torque;
+  } else if (torque < -max_torque) {
+    torque = -max_torque;
   }
 
   return torque;
 }
 
 void loop_key(void) {
+  int cmd_left_x = loopkey_apply_deadzone(PS2_LEFT_X);
+  int cmd_left_y = loopkey_apply_deadzone(PS2_LEFT_Y);
+  int cmd_right_x = loopkey_apply_deadzone(PS2_RIGHT_X);
+
+  loopkey_update_parking_mode(cmd_left_x, cmd_left_y, cmd_right_x);
+
   // ===== 按右摇杆Y选择挡位 =====
   loopkey_update_gear_by_right_y();
 
@@ -255,20 +332,27 @@ void loop_key(void) {
   target_lr = loopkey_clamp_motor_speed(loopkey_apply_rear_zmotor_scale(target_lr));
   target_rr = loopkey_clamp_motor_speed(loopkey_apply_rear_zmotor_scale(target_rr));
 
-  // ===== 防后溜：检测到车在向后溜时，给一个实时前向扭矩 =====
-  int anti_back_torque = loopkey_compute_anti_back_torque(throttle, strafe, rotate);
-  if (anti_back_torque != 0) {
-    target_lf = loopkey_clamp_motor_speed(target_lf + anti_back_torque);
-    target_rf = loopkey_clamp_motor_speed(target_rf + anti_back_torque);
-    target_lr = loopkey_clamp_motor_speed(target_lr + anti_back_torque);
-    target_rr = loopkey_clamp_motor_speed(target_rr + anti_back_torque);
+  // ===== 驻车抗推：保持零速，覆盖常规摇杆混控输出 =====
+  if (g_parking_mode_active) {
+    int park_torque = loopkey_compute_park_hold_torque();
+    target_lf = loopkey_clamp_motor_speed(park_torque);
+    target_rf = loopkey_clamp_motor_speed(park_torque);
+    target_lr = loopkey_clamp_motor_speed(park_torque);
+    target_rr = loopkey_clamp_motor_speed(park_torque);
   }
 
   // ===== 平滑过渡 =====
-  current_lf = loopkey_approach_speed(current_lf, target_lf);
-  current_rf = loopkey_approach_speed(current_rf, target_rf);
-  current_lr = loopkey_approach_speed(current_lr, target_lr);
-  current_rr = loopkey_approach_speed(current_rr, target_rr);
+  if (g_parking_mode_active) {
+    current_lf = loopkey_approach_speed_with_steps(current_lf, target_lf, PARK_SLEW_ACCEL_STEP, PARK_SLEW_DECEL_STEP);
+    current_rf = loopkey_approach_speed_with_steps(current_rf, target_rf, PARK_SLEW_ACCEL_STEP, PARK_SLEW_DECEL_STEP);
+    current_lr = loopkey_approach_speed_with_steps(current_lr, target_lr, PARK_SLEW_ACCEL_STEP, PARK_SLEW_DECEL_STEP);
+    current_rr = loopkey_approach_speed_with_steps(current_rr, target_rr, PARK_SLEW_ACCEL_STEP, PARK_SLEW_DECEL_STEP);
+  } else {
+    current_lf = loopkey_approach_speed(current_lf, target_lf);
+    current_rf = loopkey_approach_speed(current_rf, target_rf);
+    current_lr = loopkey_approach_speed(current_lr, target_lr);
+    current_rr = loopkey_approach_speed(current_rr, target_rr);
+  }
 
   // ===== 输出到四个轮子 =====
   motor_set_wheels(current_lf, current_rf, current_lr, current_rr);
