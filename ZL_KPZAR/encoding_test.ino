@@ -11,10 +11,9 @@ const unsigned long ENCODER_SAMPLE_INTERVAL_US = 100;
 const unsigned long ENCODER_VALID_STEPS_PER_INVALID_STEP = 2;  // 每 1 次非法跳变至少需要 2 次有效跳变
 
 // 运行期监控配置：请按实际接线修改为编码器 A/B 引脚。
-// 设为 ENCODER_MONITOR_PIN_DISABLED 表示禁用串口输出。
-const uint8_t ENCODER_MONITOR_PIN_DISABLED = 0xFF;
-const uint8_t ENCODER_MONITOR_PIN_A = ENCODER_MONITOR_PIN_DISABLED;
-const uint8_t ENCODER_MONITOR_PIN_B = ENCODER_MONITOR_PIN_DISABLED;
+// 设为 -1 表示禁用串口输出。
+const int ENCODER_MONITOR_PIN_A = -1;
+const int ENCODER_MONITOR_PIN_B = -1;
 const unsigned long ENCODER_MONITOR_SAMPLE_MS = 30;
 const unsigned long ENCODER_MONITOR_PRINT_INTERVAL_MS = 200;
 
@@ -134,8 +133,8 @@ bool encoder_check_encode_decode(uint8_t pin_a, uint8_t pin_b,
 // 行为：按 ENCODER_MONITOR_PRINT_INTERVAL_MS 限频打印；A/B 引脚需先在上方配置。
 void encoder_print_during_drive(int throttle_cmd) {
   if (throttle_cmd == 0) return;
-  if (ENCODER_MONITOR_PIN_A == ENCODER_MONITOR_PIN_DISABLED ||
-      ENCODER_MONITOR_PIN_B == ENCODER_MONITOR_PIN_DISABLED) return;
+  if (ENCODER_MONITOR_PIN_A < 0 || ENCODER_MONITOR_PIN_A > 255 ||
+      ENCODER_MONITOR_PIN_B < 0 || ENCODER_MONITOR_PIN_B > 255) return;
 
   static unsigned long last_print_ms = 0;
   unsigned long now = millis();
@@ -149,8 +148,11 @@ void encoder_print_during_drive(int throttle_cmd) {
   int direction = 0;
   bool direction_stable = false;
 
-  encoder_detect_sample(ENCODER_MONITOR_PIN_A,
-                        ENCODER_MONITOR_PIN_B,
+  uint8_t pin_a = (uint8_t)ENCODER_MONITOR_PIN_A;
+  uint8_t pin_b = (uint8_t)ENCODER_MONITOR_PIN_B;
+
+  encoder_detect_sample(pin_a,
+                        pin_b,
                         ENCODER_MONITOR_SAMPLE_MS,
                         ticks, transitions, valid_steps, invalid_steps,
                         direction, direction_stable);
