@@ -7,6 +7,9 @@
   建议再反向转动重复一次，确认双向都正常。
 ****************************************************************************/
 
+const unsigned long ENCODER_SAMPLE_INTERVAL_US = 100;
+const unsigned long ENCODER_INVALID_TOLERANCE_DEN = 2;  // 允许最多 50% 非法跳变
+
 static int encoder_read_state(uint8_t pin_a, uint8_t pin_b) {
   return (digitalRead(pin_a) << 1) | digitalRead(pin_b);
 }
@@ -55,7 +58,10 @@ static void encoder_detect_sample(uint8_t pin_a, uint8_t pin_b,
 
   while (millis() - t0 < sample_ms) {
     int curr_state = encoder_read_state(pin_a, pin_b);
-    if (curr_state == prev_state) continue;
+    if (curr_state == prev_state) {
+      delayMicroseconds(ENCODER_SAMPLE_INTERVAL_US);
+      continue;
+    }
 
     transitions++;
     int d = encoder_quadrature_delta(prev_state, curr_state);
@@ -71,6 +77,7 @@ static void encoder_detect_sample(uint8_t pin_a, uint8_t pin_b,
       invalid_steps++;
     }
     prev_state = curr_state;
+    delayMicroseconds(ENCODER_SAMPLE_INTERVAL_US);
   }
 
   if (positive_steps > 0 && negative_steps == 0) {
@@ -101,7 +108,9 @@ bool encoder_check_encode_decode(uint8_t pin_a, uint8_t pin_b,
                         direction_stable);
 
   bool has_signal = (transitions > 0);
-  bool decode_ok = (valid_steps > 0) && (invalid_steps <= (valid_steps / 2));
+  bool decode_ok = (valid_steps > 0) &&
+                   (invalid_steps <=
+                    (valid_steps / ENCODER_INVALID_TOLERANCE_DEN));
   return has_signal && decode_ok && direction_stable &&
          (transitions >= min_transitions);
 }
