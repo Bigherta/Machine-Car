@@ -8,7 +8,7 @@
 ****************************************************************************/
 
 const unsigned long ENCODER_SAMPLE_INTERVAL_US = 100;
-const unsigned long ENCODER_MAX_INVALID_RATIO_DENOMINATOR = 2;  // 允许最多 50% 非法跳变
+const unsigned long ENCODER_VALID_STEPS_PER_INVALID_STEP = 2;  // 每 1 次非法跳变至少需要 2 次有效跳变
 
 static int encoder_read_state(uint8_t pin_a, uint8_t pin_b) {
   return (digitalRead(pin_a) << 1) | digitalRead(pin_b);
@@ -109,8 +109,8 @@ bool encoder_check_encode_decode(uint8_t pin_a, uint8_t pin_b,
 
   bool has_signal = (transitions > 0);
   bool decode_ok = (valid_steps > 0) &&
-                   ((invalid_steps * ENCODER_MAX_INVALID_RATIO_DENOMINATOR) <=
-                    valid_steps);
+                   (valid_steps >=
+                    (invalid_steps * ENCODER_VALID_STEPS_PER_INVALID_STEP));
   return has_signal && decode_ok && direction_stable &&
          (transitions >= min_transitions);
 }
