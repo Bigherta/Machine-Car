@@ -97,6 +97,15 @@ void handlePadControl() {
     }
 
     bool changed = false;
+    bool l1Pressed = ps2.Button(PSB_L1);
+    bool r1Pressed = ps2.Button(PSB_R1);
+
+    // 组合键：同时按下 L1 + R1 时复位，且不触发单独 L1/R1 效果
+    if (l1Pressed && r1Pressed) {
+      centerAllServos(false);
+      clampAllTargets();
+      return;
+    }
 
     // 0号接口：十字键左右
     if (ps2.Button(PSB_PAD_LEFT)) {
@@ -109,11 +118,11 @@ void handlePadControl() {
     }
 
     // 1号接口：L1 / R1
-    if (ps2.Button(PSB_L1)) {
+    if (l1Pressed && !r1Pressed) {
       servoTargetUs[1] += TARGET_STEP_US;
       changed = true;
     }
-    if (ps2.Button(PSB_R1)) {
+    if (r1Pressed && !l1Pressed) {
       servoTargetUs[1] -= TARGET_STEP_US;
       changed = true;
     }
