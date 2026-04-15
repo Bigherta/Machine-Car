@@ -89,7 +89,6 @@ void setup(void) { // ZL
   setup_uart(); // 初始化串口
   setup_ps2();
   setup_servo();
-  setup_encoder_feedback();
 
   origin_left_x = PS2_LEFT_X_RAW;
   origin_right_x = PS2_RIGHT_X_RAW;
@@ -99,7 +98,6 @@ void setup(void) { // ZL
 
 void loop(void) {
   loop_ps2();              // 循环检测手柄状态
-  loop_encoder_feedback(); // 实时更新编码器速度
   loop_key();
   loop_servo();
   delay(10);

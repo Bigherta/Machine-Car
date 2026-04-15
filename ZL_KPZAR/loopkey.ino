@@ -8,7 +8,7 @@ const int THROTTLE_MIN_EFFECTIVE = 100;
 const int STRAFE_MIN_EFFECTIVE   = 100;
 const int ROTATE_MIN_EFFECTIVE   = 220;
 
-const int MOTOR_SLEW_ACCEL_STEP = 30;
+const int MOTOR_SLEW_ACCEL_STEP = 55;
 const int MOTOR_SLEW_DECEL_STEP = 70;
 
 const int THROTTLE_GAIN_NUM = 10;
@@ -36,7 +36,7 @@ const int GEAR_HIGH_THRESHOLD = 55;
 const int GEAR_LOW_THRESHOLD  = -55;
 
 // 如果你发现右摇杆Y方向和挡位逻辑反了，就把 1 改成 -1
-#define GEAR_AXIS_SIGN 1
+#define GEAR_AXIS_SIGN -1
 
 // ================= 两块 ZMotor 的方向分离补偿 =================
 // 000 / 001 = 前面那块 ZMotor
@@ -63,26 +63,7 @@ const int REAR_ZMOTOR_REV_GAIN_DEN  = 10;
 #define ROTATE_SIGN    -1
 #define STRAFE_SIGN    1
 
-// ================= 主动抱死（驻车）参数 =================
-// 编码器反馈变量
-extern int g_vehicle_speed;
-extern volatile long g_left_encoder_ticks;
-extern volatile long g_right_encoder_ticks;
-
-// 摇杆所有轴都在这个范围内才算”松杆”
-const int BRAKE_CMD_DEADZONE = 80;
-
-// PD 驻车控制参数（编码器脉冲 → 电机速度指令）
-//   KP 越大 → 位置保持越硬（偏移恢复越快），但太大会振荡
-//   KD 越大 → 阻尼越强（减速越猛），抑制振荡
-//   MAX_TORQUE 限制最大输出，防止电机过载
-const int BRAKE_POSITION_KP = 50;
-const int BRAKE_SPEED_KD    = 30;
-const int BRAKE_MAX_TORQUE  = 500;
-
-static bool g_brake_holding    = false;
-static long g_brake_hold_left  = 0;
-static long g_brake_hold_right = 0;
+// 主动驻车（抱死）逻辑已移除，保留常规手柄到电机的映射逻辑
 
 static int current_lf = 0;
 static int current_rf = 0;
@@ -239,49 +220,7 @@ void loop_key(void) {
   target_lr = loopkey_clamp_motor_speed(loopkey_apply_rear_zmotor_scale(target_lr));
   target_rr = loopkey_clamp_motor_speed(loopkey_apply_rear_zmotor_scale(target_rr));
 
-  // ===== 主动抱死：松杆时用 PD 控制锁住当前位置 =====
-  bool joystick_released =
-      (abs(throttle) < BRAKE_CMD_DEADZONE) &&
-      (abs(strafe)   < BRAKE_CMD_DEADZONE) &&
-      (abs(rotate)   < BRAKE_CMD_DEADZONE);
-
-  if (joystick_released) {
-    if (!g_brake_holding) {
-      // 刚松杆：记录当前编码器位置作为锁定点
-      noInterrupts();
-      g_brake_hold_left  = g_left_encoder_ticks;
-      g_brake_hold_right = g_right_encoder_ticks;
-      interrupts();
-      g_brake_holding = true;
-    }
-
-    // 读取当前编码器位置
-    long left_now, right_now;
-    noInterrupts();
-    left_now  = g_left_encoder_ticks;
-    right_now = g_right_encoder_ticks;
-    interrupts();
-
-    // 位置误差（正 = 相对锁定点向前偏移了）
-    long pos_err = ((left_now - g_brake_hold_left)
-                  + (right_now - g_brake_hold_right)) / 2;
-
-    // PD 控制：扭矩 = -Kp × 位置误差 - Kd × 当前速度
-    //   位置偏了 → P 项把车拉回来
-    //   还在动   → D 项提供阻尼，防止振荡
-    int torque = (int)(-(long)BRAKE_POSITION_KP * pos_err
-                       - (long)BRAKE_SPEED_KD * (long)g_vehicle_speed);
-
-    if (torque >  BRAKE_MAX_TORQUE) torque =  BRAKE_MAX_TORQUE;
-    if (torque < -BRAKE_MAX_TORQUE) torque = -BRAKE_MAX_TORQUE;
-
-    target_lf = loopkey_clamp_motor_speed(torque);
-    target_rf = loopkey_clamp_motor_speed(torque);
-    target_lr = loopkey_clamp_motor_speed(torque);
-    target_rr = loopkey_clamp_motor_speed(torque);
-  } else {
-    g_brake_holding = false;
-  }
+  // 主动驻车逻辑已删除 — 不做位置锁定，继续按目标速度输出
 
   // ===== 平滑过渡 =====
   current_lf = loopkey_approach_speed(current_lf, target_lf);
