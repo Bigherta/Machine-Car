@@ -1,5 +1,5 @@
-const int MOTOR_SPEED_MIN = -800;
-const int MOTOR_SPEED_MAX = 800;
+const int MOTOR_SPEED_MIN = -750;
+const int MOTOR_SPEED_MAX = 750;
 
 const int JOYSTICK_DEADZONE = 8;
 const int JOYSTICK_MAX_ABS = 128;
@@ -63,12 +63,13 @@ const int REAR_ZMOTOR_REV_GAIN_DEN  = 10;
 #define ROTATE_SIGN    -1
 #define STRAFE_SIGN    1
 
-// 主动驻车（抱死）逻辑已移除，保留常规手柄到电机的映射逻辑
 
 static int current_lf = 0;
 static int current_rf = 0;
 static int current_lr = 0;
 static int current_rr = 0;
+
+static bool loopkey_gear_shift_armed = false;
 
 static int loopkey_clamp_motor_speed(int speed) {
   if (speed < MOTOR_SPEED_MIN) return MOTOR_SPEED_MIN;
@@ -157,15 +158,23 @@ static int loopkey_approach_speed(int current, int target) {
 static void loopkey_update_gear_by_right_y(void) {
   int gear_axis = GEAR_AXIS_SIGN * loopkey_apply_deadzone(PS2_RIGHT_Y);
 
+  // 回到中间区后解锁一次换挡
+  if (gear_axis < GEAR_HIGH_THRESHOLD && gear_axis > GEAR_LOW_THRESHOLD) {
+    loopkey_gear_shift_armed = true;
+    return;
+  }
+
+  // 未解锁时忽略，避免持续推杆连跳
+  if (!loopkey_gear_shift_armed) return;
+
   if (gear_axis >= GEAR_HIGH_THRESHOLD) {
-    g_speed_gear = 2;
+    if (g_speed_gear < 2) g_speed_gear++;   // 升高一档
+    loopkey_gear_shift_armed = false;
   } else if (gear_axis <= GEAR_LOW_THRESHOLD) {
-    g_speed_gear = 0;
-  } else {
-    g_speed_gear = 1;
+    if (g_speed_gear > 0) g_speed_gear--;   // 降低一档
+    loopkey_gear_shift_armed = false;
   }
 }
-
 
 void loop_key(void) {
   // ===== 按右摇杆Y选择挡位 =====
@@ -219,9 +228,7 @@ void loop_key(void) {
   // 后面那块 ZMotor：008 / 009
   target_lr = loopkey_clamp_motor_speed(loopkey_apply_rear_zmotor_scale(target_lr));
   target_rr = loopkey_clamp_motor_speed(loopkey_apply_rear_zmotor_scale(target_rr));
-
-  // 主动驻车逻辑已删除 — 不做位置锁定，继续按目标速度输出
-
+  
   // ===== 平滑过渡 =====
   current_lf = loopkey_approach_speed(current_lf, target_lf);
   current_rf = loopkey_approach_speed(current_rf, target_rf);

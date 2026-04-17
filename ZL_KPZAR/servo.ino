@@ -19,6 +19,11 @@ const int SERVO_MIN_US = 600;
 const int SERVO_CENTER_US = 1500;
 const int SERVO_MAX_US = 2400;
 
+// 每个接口的单独最小/最大脉宽（微秒），可为某个舵机单独放宽范围
+const int SERVO_MIN_US_PER[6] = { 600, 600, 600, 600, 600, 600 };
+// 将 1 号接口（索引 1）上限放宽到 2500us，其他默认使用 2400us
+const int SERVO_MAX_US_PER[6] = { 2400, 2500, 2400, 2400, 2400, 2400 };
+
 // 按住按键时，每次目标值变化的幅度
 const int TARGET_STEP_US = 20;
 // 多久允许更新一次目标值
@@ -51,10 +56,10 @@ void centerAllServos(bool writeNow) {
 
 void clampAllTargets() {
   for (int i = 0; i < 6; i++) {
-    if (servoTargetUs[i] < SERVO_MIN_US)
-      servoTargetUs[i] = SERVO_MIN_US;
-    if (servoTargetUs[i] > SERVO_MAX_US)
-      servoTargetUs[i] = SERVO_MAX_US;
+    if (servoTargetUs[i] < SERVO_MIN_US_PER[i])
+      servoTargetUs[i] = SERVO_MIN_US_PER[i];
+    if (servoTargetUs[i] > SERVO_MAX_US_PER[i])
+      servoTargetUs[i] = SERVO_MAX_US_PER[i];
   }
 }
 
@@ -119,6 +124,8 @@ void handlePadControl() {
     bool pad_square = ps2.Button(PSB_SQUARE);
     bool pad_up = ps2.Button(PSB_PAD_UP);
     bool pad_triangle = ps2.Button(PSB_TRIANGLE);
+    bool pad_left = ps2.Button(PSB_PAD_LEFT);
+    bool pad_circle = ps2.Button(PSB_CIRCLE);
     // 组合键：同时按下 L1 + R1 时复位，且不触发单独 L1/R1 效果
     if (l1Pressed && r1Pressed) {
       move_to_determined_pos(1500, 1500, 780, 1500, 1500, 1500);
@@ -128,8 +135,11 @@ void handlePadControl() {
       move_to_determined_pos(1500, 1500, 2080, 1950, 2400, 1500);
       return;
     }
+    if (l1Pressed && l2Pressed) {
+      move_to_determined_pos(1500, 1500, 1500, 1650, 2200, 1500);
+    }
     if (pad_down && pad_cross) {
-      move_to_determined_pos(1500, 1500, 1500, 1850, 2400, 1500);
+      move_to_determined_pos(1500, 1500, 1800, 1850, 2400, 1500);
       return;
     }
     if (pad_right && pad_square) {
@@ -137,10 +147,15 @@ void handlePadControl() {
       return;
     }
     if (pad_up && pad_triangle) {
-      move_to_determined_pos(1500, 1500, 800, 1500, 1500, 1500);
+      move_to_determined_pos(1500, 1500, 1100, 1500, 1800, 1500);
+      return;
+    }
+    if (pad_left && pad_circle) {
+      move_to_determined_pos(1500, 1500, 1900, 2300, 2000, 1500);
+      return;
     }
     // 0号接口：十字键左右
-    if (ps2.Button(PSB_PAD_LEFT)) {
+    if (pad_left && !pad_circle) {
       servoTargetUs[0] += TARGET_STEP_US;
       changed = true;
     }
@@ -150,12 +165,12 @@ void handlePadControl() {
     }
 
     // 1号接口：L1 / R1
-    if (l1Pressed && !r1Pressed) {
-      servoTargetUs[1] += TARGET_STEP_US;
+    if (l1Pressed && !r1Pressed && !l2Pressed) {
+      servoTargetUs[1] -= TARGET_STEP_US;
       changed = true;
     }
     if (r1Pressed && !l1Pressed) {
-      servoTargetUs[1] -= TARGET_STEP_US;
+      servoTargetUs[1] += TARGET_STEP_US;
       changed = true;
     }
 
@@ -184,13 +199,13 @@ void handlePadControl() {
       servoTargetUs[4] += TARGET_STEP_US;
       changed = true;
     }
-    if (ps2.Button(PSB_CIRCLE)) {
+    if (pad_circle && !pad_left) {
       servoTargetUs[4] -= TARGET_STEP_US;
       changed = true;
     }
 
     // 5号接口：L2 / R2
-    if (l2Pressed && !r2Pressed) {
+    if (l2Pressed && !r2Pressed && !l1Pressed) {
       servoTargetUs[5] += TARGET_STEP_US;
       changed = true;
     }
