@@ -22,14 +22,17 @@ const int SERVO_MAX_US = 2400;
 // 每个接口的单独最小/最大脉宽（微秒），可为某个舵机单独放宽范围
 const int SERVO_MIN_US_PER[6] = { 600, 600, 600, 600, 600, 600 };
 // 将 1 号接口（索引 1）上限放宽到 2500us，其他默认使用 2400us
-const int SERVO_MAX_US_PER[6] = { 2400, 2500, 2400, 2400, 2400, 2400 };
+// 提升 4 号接口（索引 4）的上限到 2600us，以允许更大输出（请注意硬件限制）
+const int SERVO_MAX_US_PER[6] = { 2400, 2500, 2400, 2400, 2600, 2400 };
 
-// 按住按键时，每次目标值变化的幅度
-const int TARGET_STEP_US = 20;
+// 按住按键时，每次目标值变化的幅度（降为原来的 80%）
+const int TARGET_STEP_US = 16;
 // 多久允许更新一次目标值
 const unsigned long TARGET_UPDATE_MS = 10;
-// 舵机每次逼近目标值的步长
-const int MOVE_STEP_US = 25;
+// 舵机每次逼近目标值的步长（降为原来的 80%）
+const int MOVE_STEP_US = 20;
+// 每个舵机的逼近步长（微秒），按 80% 缩放（第5号舵机单独为 12us/步）
+const int MOVE_STEP_US_PER[6] = {20, 20, 20, 20, 20, 12};
 // 多久真正写一次舵机
 const unsigned long MOVE_UPDATE_MS = 10;
 
@@ -64,13 +67,14 @@ void clampAllTargets() {
 }
 
 void updateOneServo(uint8_t index) {
+  int step = MOVE_STEP_US_PER[index];
   if (servoCurrentUs[index] < servoTargetUs[index]) {
-    servoCurrentUs[index] += MOVE_STEP_US;
+    servoCurrentUs[index] += step;
     if (servoCurrentUs[index] > servoTargetUs[index]) {
       servoCurrentUs[index] = servoTargetUs[index];
     }
   } else if (servoCurrentUs[index] > servoTargetUs[index]) {
-    servoCurrentUs[index] -= MOVE_STEP_US;
+    servoCurrentUs[index] -= step;
     if (servoCurrentUs[index] < servoTargetUs[index]) {
       servoCurrentUs[index] = servoTargetUs[index];
     }
@@ -89,14 +93,14 @@ void updateServosSmoothly() {
   }
 }
 
-void move_to_determined_pos(int pos1, int pos2, int pos3, int pos4, int pos5,
-                            int pos6) {
-  servoTargetUs[0] = pos1;
-  servoTargetUs[1] = pos2;
-  servoTargetUs[2] = pos3;
-  servoTargetUs[3] = pos4;
-  servoTargetUs[4] = pos5;
-  servoTargetUs[5] = pos6;
+// 不再控制 0 号舵机：只设置 1..5 号舵机目标值
+void move_to_determined_pos(int pos1, int pos2, int pos3, int pos4, int pos5) {
+  // 保持 servoTargetUs[0] 不变（不由此函数控制）
+  servoTargetUs[1] = pos1;
+  servoTargetUs[2] = pos2;
+  servoTargetUs[3] = pos3;
+  servoTargetUs[4] = pos4;
+  servoTargetUs[5] = pos5;
 
   clampAllTargets();
   servo_targets_centered = false;
@@ -128,30 +132,30 @@ void handlePadControl() {
     bool pad_circle = ps2.Button(PSB_CIRCLE);
     // 组合键：同时按下 L1 + R1 时复位，且不触发单独 L1/R1 效果
     if (l1Pressed && r1Pressed) {
-      move_to_determined_pos(1500, 1500, 780, 1500, 1500, 1500);
+      move_to_determined_pos(1500, 780, 1500, 1500, 1500);
       return;
     }
     if (l2Pressed && r2Pressed) {
-      move_to_determined_pos(1500, 1500, 2080, 1950, 2400, 1500);
+      move_to_determined_pos(1500, 2080, 1950, 2400, 1500);
       return;
     }
     if (l1Pressed && l2Pressed) {
-      move_to_determined_pos(1500, 1500, 1500, 1650, 2200, 1500);
+      move_to_determined_pos(1500, 1500, 1650, 2200, 1500);
     }
     if (pad_down && pad_cross) {
-      move_to_determined_pos(1500, 1500, 1800, 1850, 2400, 1500);
+      move_to_determined_pos(1500, 1800, 1850, 2400, 1500);
       return;
     }
     if (pad_right && pad_square) {
-      move_to_determined_pos(1500, 1500, 1000, 2200, 1400, 1500);
+      move_to_determined_pos(1500, 1000, 2200, 1400, 1500);
       return;
     }
     if (pad_up && pad_triangle) {
-      move_to_determined_pos(1500, 1500, 1100, 1500, 1800, 1500);
+      move_to_determined_pos(1500, 1100, 1500, 1800, 1500);
       return;
     }
     if (pad_left && pad_circle) {
-      move_to_determined_pos(1500, 1500, 1900, 2300, 2000, 1500);
+      move_to_determined_pos(1500, 1900, 2300, 2000, 1500);
       return;
     }
     // 0号接口：十字键左右
@@ -223,7 +227,8 @@ void handlePadControl() {
 
 void setup_servo(void) {
   for (int i = 0; i < 6; i++) {
-    servos[i].attach(SERVO_PINS[i], 500, 2500);
+    // 使用每个舵机指定的最小/最大脉宽范围
+    servos[i].attach(SERVO_PINS[i], SERVO_MIN_US_PER[i], SERVO_MAX_US_PER[i]);
   }
 
   centerAllServos(true);

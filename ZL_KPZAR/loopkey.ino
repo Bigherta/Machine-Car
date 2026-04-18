@@ -1,5 +1,5 @@
-const int MOTOR_SPEED_MIN = -750;
-const int MOTOR_SPEED_MAX = 750;
+const int MOTOR_SPEED_MIN = -1000;
+const int MOTOR_SPEED_MAX = 1000;
 
 const int JOYSTICK_DEADZONE = 8;
 const int JOYSTICK_MAX_ABS = 128;
@@ -8,7 +8,7 @@ const int THROTTLE_MIN_EFFECTIVE = 100;
 const int STRAFE_MIN_EFFECTIVE   = 100;
 const int ROTATE_MIN_EFFECTIVE   = 220;
 
-const int MOTOR_SLEW_ACCEL_STEP = 55;
+const int MOTOR_SLEW_ACCEL_STEP = 30;
 const int MOTOR_SLEW_DECEL_STEP = 70;
 
 const int THROTTLE_GAIN_NUM = 10;
@@ -27,8 +27,8 @@ const int TRANSLATION_IGNORE_THRESHOLD = 120;
 // 0 = 低速挡，1 = 中速挡，2 = 高速挡
 static int g_speed_gear = 1;
 
-const int LOW_GEAR_PERCENT  = 20;
-const int MID_GEAR_PERCENT  = 40;
+const int LOW_GEAR_PERCENT  = 5;
+const int MID_GEAR_PERCENT  = 30;
 const int HIGH_GEAR_PERCENT = 100;
 
 // 右摇杆Y轴三挡逻辑
@@ -180,13 +180,14 @@ void loop_key(void) {
   // ===== 按右摇杆Y选择挡位 =====
   loopkey_update_gear_by_right_y();
 
-  // 左摇杆Y：前后
-  int throttle = THROTTLE_SIGN * loopkey_map_axis_to_speed_with_min(PS2_LEFT_Y, THROTTLE_MIN_EFFECTIVE);
+  // 说明：将“前后移动”和“左右自旋”互换映射。
+  // 现在：右摇杆X 控制 前后移动（throttle），使用原来的最小有效值/符号
+  int throttle = THROTTLE_SIGN * loopkey_map_axis_to_speed_with_min(PS2_RIGHT_X, THROTTLE_MIN_EFFECTIVE);
 
-  // 右摇杆X：原地旋转
-  int rotate = ROTATE_SIGN * loopkey_map_axis_to_speed_with_min(PS2_RIGHT_X, ROTATE_MIN_EFFECTIVE);
+  // 现在：左摇杆Y 控制 原地旋转（rotate），使用原来的最小有效值/符号
+  int rotate = ROTATE_SIGN * loopkey_map_axis_to_speed_with_min(PS2_LEFT_Y, ROTATE_MIN_EFFECTIVE);
 
-  // 左摇杆X：左右平移
+  // 左摇杆X：左右平移（保持不变）
   int strafe = STRAFE_SIGN * loopkey_map_axis_to_speed_with_min(PS2_LEFT_X, STRAFE_MIN_EFFECTIVE);
 
   throttle = throttle * THROTTLE_GAIN_NUM / THROTTLE_GAIN_DEN;
