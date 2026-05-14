@@ -46,7 +46,7 @@ static void motor_configure_module(void) {
   delay(100);
   send_wheel_diameter(67.00);
   delay(100);
-  send_motor_deadzone(1600);
+  send_motor_deadzone(5);
   delay(100);
 #elif MOTOR_TYPE == 2
   send_motor_type(MOTOR_310);
