@@ -40,13 +40,13 @@ static void motor_configure_module(void) {
 #if MOTOR_TYPE == 1
   send_motor_type(MOTOR_520);
   delay(100);
-  send_pulse_phase(30);
+  send_pulse_phase(56);
   delay(100);
   send_pulse_line(11);
   delay(100);
   send_wheel_diameter(67.00);
   delay(100);
-  send_motor_deadzone(5);
+  send_motor_deadzone(1600);
   delay(100);
 #elif MOTOR_TYPE == 2
   send_motor_type(MOTOR_310);
@@ -114,6 +114,7 @@ void setup_motor(void) {
   Usart_init();
   delay(100);
   motor_configure_module();
+
 }
 
 void motor_update(void) {
