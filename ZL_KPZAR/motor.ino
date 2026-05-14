@@ -1,33 +1,21 @@
 /****************************************************************************
-  总线马达版本
-  4个电机:
-  左前 000
-  右前 001
-  左后 008
-  右后 009
+  USART encoder motor control
 ****************************************************************************/
 
-#define LEFT_FRONT_ID 0
-#define RIGHT_FRONT_ID 1
-#define LEFT_REAR_ID 8
-#define RIGHT_REAR_ID 9
+#include "app_motor_usart.hpp"
+#include "bsp_motor_usart.hpp"
 
-// 如果某个轮子方向反了，只改这里的符号
+// If a wheel direction is reversed, flip the sign here.
 #define LEFT_FRONT_DIR 1
 #define RIGHT_FRONT_DIR 1
 #define LEFT_REAR_DIR 1
 #define RIGHT_REAR_DIR 1
 
-#define BUS_PWM_STOP 1500
-#define BUS_PWM_MIN_OFFSET 200
-#define BUS_PWM_MAX_OFFSET 900
+// Motor configuration copied from USART example.
+#define MOTOR_TYPE 1
+#define UPLOAD_DATA 0
 
-static int last_lf_cmd = 12345;
-static int last_rf_cmd = 12345;
-static int last_lr_cmd = 12345;
-static int last_rr_cmd = 12345;
-
-static int motor_bus_clamp_speed(int speed) {
+static int motor_clamp_speed(int speed) {
   if (speed < -1000)
     return -1000;
   if (speed > 1000)
@@ -35,74 +23,128 @@ static int motor_bus_clamp_speed(int speed) {
   return speed;
 }
 
-static int motor_bus_speed_to_pwm(int speed) {
-  speed = motor_bus_clamp_speed(speed);
-
-  if (speed == 0)
-    return BUS_PWM_STOP;
-
-  int sign = (speed > 0) ? 1 : -1;
-  int mag = abs(speed);
-
-  long offset = BUS_PWM_MIN_OFFSET +
-                (long)(BUS_PWM_MAX_OFFSET - BUS_PWM_MIN_OFFSET) * mag / 1000;
-
-  int pwm = BUS_PWM_STOP + sign * (int)offset;
-
-  if (pwm > 2500)
-    pwm = 2500;
-  if (pwm < 500)
-    pwm = 500;
-
-  return pwm;
+static int motor_apply_dir(int speed, int dir_sign) {
+  int value = motor_clamp_speed(speed);
+  value = value * dir_sign;
+  return motor_clamp_speed(value);
 }
 
-static void bus_send_motor_cmd(u8 id, int pwm) {
-  char cmd[20];
-  sprintf(cmd, "#%03dP%04dT0000!", id, pwm);
-  uart_send_str((u8 *)cmd);
-  delay(3);
-}
+static int last_lf = 0;
+static int last_rf = 0;
+static int last_lr = 0;
+static int last_rr = 0;
 
-static void set_one_bus_motor(u8 id, int speed, int dir_sign, int &last_cmd) {
-  speed = motor_bus_clamp_speed(speed);
+static void motor_configure_module(void) {
+  send_upload_data(false, false, false);
 
-  if (speed == last_cmd)
-    return;
-  last_cmd = speed;
+#if MOTOR_TYPE == 1
+  send_motor_type(MOTOR_520);
+  delay(100);
+  send_pulse_phase(30);
+  delay(100);
+  send_pulse_line(11);
+  delay(100);
+  send_wheel_diameter(67.00);
+  delay(100);
+  send_motor_deadzone(1600);
+  delay(100);
+#elif MOTOR_TYPE == 2
+  send_motor_type(MOTOR_310);
+  delay(100);
+  send_pulse_phase(20);
+  delay(100);
+  send_pulse_line(13);
+  delay(100);
+  send_wheel_diameter(48.00);
+  delay(100);
+  send_motor_deadzone(1300);
+  delay(100);
+#elif MOTOR_TYPE == 3
+  send_motor_type(MOTOR_TT_Encoder);
+  delay(100);
+  send_pulse_phase(45);
+  delay(100);
+  send_pulse_line(13);
+  delay(100);
+  send_wheel_diameter(68.00);
+  delay(100);
+  send_motor_deadzone(1250);
+  delay(100);
+#elif MOTOR_TYPE == 4
+  send_motor_type(MOTOR_TT);
+  delay(100);
+  send_pulse_phase(48);
+  delay(100);
+  send_motor_deadzone(1000);
+  delay(100);
+#elif MOTOR_TYPE == 5
+  send_motor_type(MOTOR_520);
+  delay(100);
+  send_pulse_phase(40);
+  delay(100);
+  send_pulse_line(11);
+  delay(100);
+  send_wheel_diameter(67.00);
+  delay(100);
+  send_motor_deadzone(1600);
+  delay(100);
+#endif
 
-  int actual_speed = speed * dir_sign;
-  int pwm = motor_bus_speed_to_pwm(actual_speed);
-  bus_send_motor_cmd(id, pwm);
+#if UPLOAD_DATA == 1
+  send_upload_data(true, false, false);
+  delay(10);
+#elif UPLOAD_DATA == 2
+  send_upload_data(false, true, false);
+  delay(10);
+#elif UPLOAD_DATA == 3
+  send_upload_data(false, false, true);
+  delay(10);
+#endif
 }
 
 void setup_motor(void) {
   motor1_speed = 0;
   motor2_speed = 0;
+  g_recv_flag = 0;
+  last_lf = 0;
+  last_rf = 0;
+  last_lr = 0;
+  last_rr = 0;
 
-  last_lf_cmd = 12345;
-  last_rf_cmd = 12345;
-  last_lr_cmd = 12345;
-  last_rr_cmd = 12345;
+  Usart_init();
+  delay(100);
+  motor_configure_module();
 }
 
-// 保留旧接口，兼容主程序里可能的调用
+void motor_update(void) {
+  Motor_USART_Recieve();
+  if (g_recv_flag == 1) {
+    g_recv_flag = 0;
+    Deal_data_real();
+  }
+}
+
+// Legacy interface
 void motor1_SetSpeed(int Speed) {
-  set_one_bus_motor(LEFT_FRONT_ID, Speed, LEFT_FRONT_DIR, last_lf_cmd);
-  set_one_bus_motor(LEFT_REAR_ID, Speed, LEFT_REAR_DIR, last_lr_cmd);
+  motor_set_wheels(Speed, last_rf, Speed, last_rr);
 }
 
 void motor2_SetSpeed(int Speed) {
-  set_one_bus_motor(RIGHT_FRONT_ID, Speed, RIGHT_FRONT_DIR, last_rf_cmd);
-  set_one_bus_motor(RIGHT_REAR_ID, Speed, RIGHT_REAR_DIR, last_rr_cmd);
+  motor_set_wheels(last_lf, Speed, last_lr, Speed);
 }
 
-// 新接口：直接控制四个轮子
 void motor_set_wheels(int lf, int rf, int lr, int rr) {
-  set_one_bus_motor(LEFT_FRONT_ID, lf, LEFT_FRONT_DIR, last_lf_cmd);
-  set_one_bus_motor(RIGHT_FRONT_ID, rf, RIGHT_FRONT_DIR, last_rf_cmd);
-  set_one_bus_motor(LEFT_REAR_ID, lr, LEFT_REAR_DIR, last_lr_cmd);
-  set_one_bus_motor(RIGHT_REAR_ID, rr, RIGHT_REAR_DIR, last_rr_cmd);
+  last_lf = lf;
+  last_rf = rf;
+  last_lr = lr;
+  last_rr = rr;
+
+  int m1 = motor_apply_dir(lf, LEFT_FRONT_DIR);
+  int m2 = motor_apply_dir(rf, RIGHT_FRONT_DIR);
+  int m3 = motor_apply_dir(lr, LEFT_REAR_DIR);
+  int m4 = motor_apply_dir(rr, RIGHT_REAR_DIR);
+
+  Contrl_Speed(m1, m2, m3, m4);
 }
 
 void motor_stop_all(void) { motor_set_wheels(0, 0, 0, 0); }

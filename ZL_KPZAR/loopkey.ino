@@ -238,6 +238,7 @@ void loop_key(void) {
 
   // ===== 输出到四个轮子 =====
   motor_set_wheels(current_lf, current_rf, current_lr, current_rr);
+  motor_update();
 
   delay(10);
 }
