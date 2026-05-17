@@ -18,4 +18,8 @@ void setup_ps2(void) {
   ps2.read_gamepad();
 
   g_ps2_link_ok = (ps2_mode == 0);
+  if (g_ps2_link_ok) {
+    g_ps2_last_read_ms = millis();
+    g_ps2_frame_ready = true;
+  }
 }

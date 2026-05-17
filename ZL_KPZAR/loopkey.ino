@@ -2,6 +2,127 @@ extern bool g_ps2_link_ok;
 extern unsigned long g_ps2_last_read_ms;
 extern bool g_ps2_frame_ready;
 
+
+#ifndef MOTOR_DRIVER_RX_TEST_MODE
+#define MOTOR_DRIVER_RX_TEST_MODE 0
+#endif
+#ifndef MOTOR_DRIVER_RX_TEST_PROFILE
+#define MOTOR_DRIVER_RX_TEST_PROFILE 1
+#endif
+#ifndef MOTOR_DRIVER_RX_TEST_SPEED
+#define MOTOR_DRIVER_RX_TEST_SPEED 60
+#endif
+#ifndef MOTOR_DRIVER_RX_TEST_PWM
+#define MOTOR_DRIVER_RX_TEST_PWM 80
+#endif
+#ifndef MOTOR_DRIVER_RX_TEST_SEND_INTERVAL_MS
+#define MOTOR_DRIVER_RX_TEST_SEND_INTERVAL_MS 500
+#endif
+#ifndef MOTOR_DRIVER_RX_TEST_BOOT_DELAY_MS
+#define MOTOR_DRIVER_RX_TEST_BOOT_DELAY_MS 8000
+#endif
+
+void motor_set_wheels_pwm(int lf, int rf, int lr, int rr);
+void motor_set_wheels_mtep_p_loop(int lf, int rf, int lr, int rr);
+void motor_hold_zero_speed_mtep(void);
+void motor_reset_hold_integral(void);
+void motor_reconfigure_and_set_wheels(int lf, int rf, int lr, int rr);
+
+// ================= 电机驱动板持续接收验证 =================
+// 目的：绕开 PS2 和舵机，只验证 Arduino 主板是否能持续向电机驱动板发送 $pwm 指令。
+// 现象：
+//   1. 上电后前 3 秒反复发送 0 速，LED 会闪；
+//   2. 之后循环执行：正转 -> 停 -> 反转 -> 停；
+//   3. 若驱动板持续收到命令，轮子状态应跟随这个节奏不断变化；
+//   4. 若轮子只保持第一次动作，说明后续 $pwm 指令也没有被驱动板正确执行。
+static void loopkey_driver_rx_test(void) {
+  static unsigned long last_send_ms = 0;
+  static bool led_state = false;
+  static int last_phase = -1;
+
+  unsigned long now_ms = millis();
+  if (now_ms - last_send_ms < MOTOR_DRIVER_RX_TEST_SEND_INTERVAL_MS) {
+    motor_update();
+    return;
+  }
+  last_send_ms = now_ms;
+
+  int lf = 0;
+  int rf = 0;
+  int lr = 0;
+  int rr = 0;
+  int phase = -1;
+
+  if (now_ms < MOTOR_DRIVER_RX_TEST_BOOT_DELAY_MS) {
+    // 前 5 秒持续发 0 输出。
+    // 目的：验证“不是只有刚开机那一刻才能发命令”。
+    phase = -1;
+    lf = rf = lr = rr = 0;
+  } else {
+    unsigned long t = now_ms - MOTOR_DRIVER_RX_TEST_BOOT_DELAY_MS;
+    phase = (t / 3000UL) % 4;
+
+    if (phase == 0) {
+      // 超低速正转 3 秒
+      lf = MOTOR_DRIVER_RX_TEST_SPEED;
+      rf = MOTOR_DRIVER_RX_TEST_SPEED;
+      lr = MOTOR_DRIVER_RX_TEST_SPEED;
+      rr = MOTOR_DRIVER_RX_TEST_SPEED;
+    } else if (phase == 1) {
+      // 停 3 秒
+      lf = rf = lr = rr = 0;
+    } else if (phase == 2) {
+      // 超低速反转 3 秒
+      lf = -MOTOR_DRIVER_RX_TEST_SPEED;
+      rf = -MOTOR_DRIVER_RX_TEST_SPEED;
+      lr = -MOTOR_DRIVER_RX_TEST_SPEED;
+      rr = -MOTOR_DRIVER_RX_TEST_SPEED;
+    } else {
+      // 停 3 秒
+      lf = rf = lr = rr = 0;
+    }
+  }
+
+#if MOTOR_DRIVER_RX_TEST_PROFILE == 1
+  // Profile 1：原始 $spd 超低速测试，不加换行，不重新配置。
+  motor_set_wheels(lf, rf, lr, rr);
+
+#elif MOTOR_DRIVER_RX_TEST_PROFILE == 2
+  // Profile 2：$pwm 直接输出测试。当前 v6 默认运行这一项。
+  // 如果 PWM 能持续改变而 SPD 不能，说明问题更可能在速度闭环/编码器参数/驱动板速度模式。
+  int pwm_lf = 0;
+  int pwm_rf = 0;
+  int pwm_lr = 0;
+  int pwm_rr = 0;
+  if (lf > 0) {
+    pwm_lf = pwm_rf = pwm_lr = pwm_rr = MOTOR_DRIVER_RX_TEST_PWM;
+  } else if (lf < 0) {
+    pwm_lf = pwm_rf = pwm_lr = pwm_rr = -MOTOR_DRIVER_RX_TEST_PWM;
+  }
+  motor_set_wheels_pwm(pwm_lf, pwm_rf, pwm_lr, pwm_rr);
+
+#elif MOTOR_DRIVER_RX_TEST_PROFILE == 3
+  // Profile 3：每次相位变化时重新发送配置，再发 $spd。
+  // 如果只有这个模式能持续改变，说明驱动板可能需要被重新初始化/唤醒。
+  if (phase != last_phase) {
+    motor_reconfigure_and_set_wheels(lf, rf, lr, rr);
+    last_phase = phase;
+  } else {
+    motor_set_wheels(lf, rf, lr, rr);
+  }
+
+#else
+  motor_set_wheels(lf, rf, lr, rr);
+#endif
+
+  // 板载 LED 每发一次命令翻转一次，用来证明 Arduino 主循环没有卡死。
+  led_state = !led_state;
+  digitalWrite(LED_BUILTIN, led_state ? HIGH : LOW);
+
+  motor_update();
+}
+
+
 const int MOTOR_SPEED_MIN = -1000;
 const int MOTOR_SPEED_MAX = 1000;
 
@@ -73,16 +194,13 @@ static int current_rf = 0;
 static int current_lr = 0;
 static int current_rr = 0;
 
-static bool loopkey_gear_shift_armed = false;
+static bool loopkey_gear_shift_ready = false;
 
-// ================= 安全启动设置 =================
-// 1：上电后电机保持停止，按 START 后才允许摇杆控制；按 SELECT 立即锁车停止。
-// 0：只要 PS2 连接成功，就直接允许摇杆控制。
-#define MOTOR_START_ARM_ENABLE 1
-
+// ================= 安全停车设置 =================
+// 只要 PS2 连接正常，摇杆直接控制小车；摇杆回中时进入 Hold 零速保持。
+// 只有 PS2 断连/长时间未刷新时，才进入安全停车。
 const unsigned long MOTOR_STOP_REFRESH_MS = 80;
 const unsigned long PS2_FRAME_TIMEOUT_MS = 150;
-static bool loopkey_motor_armed = false;
 static unsigned long loopkey_last_stop_command_ms = 0;
 
 static void loopkey_stop_motor_safely(void) {
@@ -91,6 +209,8 @@ static void loopkey_stop_motor_safely(void) {
   current_lr = 0;
   current_rr = 0;
 
+  motor_reset_hold_integral();
+
   unsigned long now_ms = millis();
   if (loopkey_last_stop_command_ms == 0 ||
       now_ms - loopkey_last_stop_command_ms >= MOTOR_STOP_REFRESH_MS) {
@@ -98,6 +218,19 @@ static void loopkey_stop_motor_safely(void) {
     loopkey_last_stop_command_ms = now_ms;
   }
 
+  motor_update();
+}
+
+static void loopkey_hold_zero_speed(void) {
+  current_lf = 0;
+  current_rf = 0;
+  current_lr = 0;
+  current_rr = 0;
+
+  // v13：PS2 正常连接且摇杆回中时进入零速保持。
+  // PS2 断连/断帧时仍然使用 loopkey_stop_motor_safely()，不会保留扭矩。
+  motor_hold_zero_speed_mtep();
+  loopkey_last_stop_command_ms = 0;
   motor_update();
 }
 
@@ -188,71 +321,55 @@ static int loopkey_approach_speed(int current, int target) {
 static void loopkey_update_gear_by_right_y(void) {
   int gear_axis = GEAR_AXIS_SIGN * loopkey_apply_deadzone(PS2_RIGHT_Y);
 
-  // 回到中间区后解锁一次换挡
+  // 回到中间区后允许下一次换挡
   if (gear_axis < GEAR_HIGH_THRESHOLD && gear_axis > GEAR_LOW_THRESHOLD) {
-    loopkey_gear_shift_armed = true;
+    loopkey_gear_shift_ready = true;
     return;
   }
 
-  // 未解锁时忽略，避免持续推杆连跳
-  if (!loopkey_gear_shift_armed) return;
+  // 未准备好时忽略，避免持续推杆连跳
+  if (!loopkey_gear_shift_ready) return;
 
   if (gear_axis >= GEAR_HIGH_THRESHOLD) {
     if (g_speed_gear < 2) g_speed_gear++;   // 升高一档
-    loopkey_gear_shift_armed = false;
+    loopkey_gear_shift_ready = false;
   } else if (gear_axis <= GEAR_LOW_THRESHOLD) {
     if (g_speed_gear > 0) g_speed_gear--;   // 降低一档
-    loopkey_gear_shift_armed = false;
+    loopkey_gear_shift_ready = false;
   }
 }
 
 void loop_key(void) {
+#if MOTOR_DRIVER_RX_TEST_MODE
+  loopkey_driver_rx_test();
+  return;
+#endif
+
   // 先处理一小段电机驱动板回传数据。注意底层已经做了“限时/限字节”，不会长期卡住 PS2 控制。
   motor_update();
 
   // PS2 未连接成功，或主循环超过一段时间没有拿到新的 PS2 帧时，立即停车。
   // 这能避免“手柄断帧后一直沿用上一条摇杆速度命令”。
+  // 这里的安全停车只负责处理手柄断连/断帧。
   if (!g_ps2_link_ok || !g_ps2_frame_ready ||
       (millis() - g_ps2_last_read_ms > PS2_FRAME_TIMEOUT_MS)) {
-    loopkey_motor_armed = false;
     loopkey_stop_motor_safely();
     return;
   }
 
-  // SELECT：紧急停止并重新上锁。
-  if (ps2.ButtonPressed(PSB_SELECT)) {
-    loopkey_motor_armed = false;
-    loopkey_stop_motor_safely();
-    return;
-  }
-
-#if MOTOR_START_ARM_ENABLE
-  // START：解锁电机控制。上电后必须按一次 START，小车才会响应摇杆。
-  if (ps2.ButtonPressed(PSB_START)) {
-    loopkey_motor_armed = true;
-    loopkey_gear_shift_armed = true;
-  }
-
-  if (!loopkey_motor_armed) {
-    loopkey_stop_motor_safely();
-    return;
-  }
-#else
-  loopkey_motor_armed = true;
-#endif
+  // PS2 正常连接后，摇杆直接控制；摇杆回中直接进入 Hold 零速保持。
 
   // ===== 按右摇杆Y选择挡位 =====
   loopkey_update_gear_by_right_y();
 
-  // 说明：将“前后移动”和“左右自旋”互换映射。
-  // 现在：右摇杆X 控制 前后移动（throttle），使用原来的最小有效值/符号
-  int throttle = THROTTLE_SIGN * loopkey_map_axis_to_speed_with_min(PS2_RIGHT_X, THROTTLE_MIN_EFFECTIVE);
-
-  // 现在：左摇杆Y 控制 原地旋转（rotate），使用原来的最小有效值/符号
-  int rotate = ROTATE_SIGN * loopkey_map_axis_to_speed_with_min(PS2_LEFT_Y, ROTATE_MIN_EFFECTIVE);
-
-  // 左摇杆X：左右平移（保持不变）
-  int strafe = STRAFE_SIGN * loopkey_map_axis_to_speed_with_min(PS2_LEFT_X, STRAFE_MIN_EFFECTIVE);
+  // ===== 摇杆映射：根据实测结果 =====
+  // 左摇杆X -> 前后移动 (throttle)
+  // 左摇杆Y -> 原地旋转 (rotate)
+  // 右摇杆X -> 左右平移 (strafe)，方向取反修正
+  // 右摇杆Y -> 挡位切换 (gear)
+  int throttle = - THROTTLE_SIGN * loopkey_map_axis_to_speed_with_min(PS2_LEFT_X, THROTTLE_MIN_EFFECTIVE);
+  int rotate   = ROTATE_SIGN   * loopkey_map_axis_to_speed_with_min(PS2_RIGHT_X, ROTATE_MIN_EFFECTIVE);
+  int strafe   = - STRAFE_SIGN  * loopkey_map_axis_to_speed_with_min(PS2_LEFT_Y, STRAFE_MIN_EFFECTIVE);
 
   throttle = throttle * THROTTLE_GAIN_NUM / THROTTLE_GAIN_DEN;
   rotate   = rotate   * ROTATE_GAIN_NUM   / ROTATE_GAIN_DEN;
@@ -264,15 +381,12 @@ void loop_key(void) {
   if (abs(rotate) >= ROTATE_PRIORITY_THRESHOLD &&
       abs(throttle) < TRANSLATION_IGNORE_THRESHOLD &&
       abs(strafe) < TRANSLATION_IGNORE_THRESHOLD) {
-
-    // 保留你已经验证可用的旋转方向
     target_lf = loopkey_clamp_motor_speed(-rotate);
     target_rf = loopkey_clamp_motor_speed(-rotate);
     target_lr = loopkey_clamp_motor_speed( rotate);
     target_rr = loopkey_clamp_motor_speed( rotate);
-
   } else {
-    // 正常混控
+    // 正常混控（麦轮/四轮独立驱动混控公式）
     target_lf = loopkey_clamp_motor_speed(throttle + strafe + rotate);
     target_rf = loopkey_clamp_motor_speed(throttle - strafe - rotate);
     target_lr = loopkey_clamp_motor_speed(throttle - strafe + rotate);
@@ -294,10 +408,11 @@ void loop_key(void) {
   target_lr = loopkey_clamp_motor_speed(loopkey_apply_rear_zmotor_scale(target_lr));
   target_rr = loopkey_clamp_motor_speed(loopkey_apply_rear_zmotor_scale(target_rr));
   
-  // ===== 摇杆回中：立即发送 0 速，而不是慢慢减速 =====
-  // 这样可以确认“回正 = 停车命令”真的发给了电机驱动板，避免驱动板保持上一条速度。
+  // ===== 摇杆回中：进入 v12 零速保持 =====
+  // 目标速度设为 0，读取 MTEP 判断是否仍在滑动；若滑动，则输出反向 PWM 抵消。
+  // 注意：PS2 断连/断帧仍走 loopkey_stop_motor_safely()，不会启用保持扭矩。
   if (target_lf == 0 && target_rf == 0 && target_lr == 0 && target_rr == 0) {
-    loopkey_stop_motor_safely();
+    loopkey_hold_zero_speed();
     return;
   }
 
@@ -308,7 +423,9 @@ void loop_key(void) {
   current_rr = loopkey_approach_speed(current_rr, target_rr);
 
   // ===== 输出到四个轮子 =====
-  motor_set_wheels(current_lf, current_rf, current_lr, current_rr);
+  // v10：这里不再直接输出普通 $pwm，而是用 MTEP 反馈做 Arduino 侧 P 闭环修正。
+  // 底层仍然发送稳定的 $pwm:...#，不使用驱动板内部不稳定的 $spd。
+  motor_set_wheels_mtep_p_loop(current_lf, current_rf, current_lr, current_rr);
   loopkey_last_stop_command_ms = 0;
   motor_update();
 

@@ -111,11 +111,6 @@ void handlePadControl() {
 
   if (millis() - lastTargetUpdate >= TARGET_UPDATE_MS) {
     lastTargetUpdate = millis();
-    if (ps2.ButtonPressed(PSB_SELECT)) {
-      centerAllServos(false);
-      clampAllTargets();
-      return;
-    }
 
     bool changed = false;
     bool l1Pressed = ps2.Button(PSB_L1);

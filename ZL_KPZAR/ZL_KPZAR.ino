@@ -14,6 +14,18 @@
 /*******全局变量宏定义*******/
 #define UART_RECEIVE_BUF_SIZE 100
 
+/*******运行模式*******/
+// 0：正常运行：PS2 手柄直接控制 + $pwm 输出 + MTEP 实时速度反馈 + 零速保持。
+// 1：诊断模式：不读 PS2，只按固定节奏持续发送 $pwm，用于验证驱动板是否持续接收。
+#define MOTOR_DRIVER_RX_TEST_MODE 0
+
+// 诊断模式参数，正常运行时不会使用。
+#define MOTOR_DRIVER_RX_TEST_PROFILE 2
+#define MOTOR_DRIVER_RX_TEST_SPEED 60
+#define MOTOR_DRIVER_RX_TEST_PWM 520
+#define MOTOR_DRIVER_RX_TEST_SEND_INTERVAL_MS 300
+#define MOTOR_DRIVER_RX_TEST_BOOT_DELAY_MS 5000
+
 /*******PS2管脚映射表*******/
 #define PS2_DAT 12
 #define PS2_CMD A0
@@ -30,8 +42,6 @@
 #define PS2_P_LEFT_DOWN ps2.ButtonPressed(PSB_PAD_DOWN)
 #define PS2_P_LEFT_LEFT ps2.ButtonPressed(PSB_PAD_LEFT)
 
-#define PS2_P_SELECT ps2.ButtonPressed(PSB_SELECT)
-#define PS2_P_START ps2.ButtonPressed(PSB_START)
 
 #define PS2_P_RIGHT_UP ps2.ButtonPressed(PSB_GREEN)
 #define PS2_P_RIGHT_RIGHT ps2.ButtonPressed(PSB_RED)
@@ -48,8 +58,6 @@
 #define PS2_R_LEFT_DOWN ps2.ButtonReleased(PSB_PAD_DOWN)
 #define PS2_R_LEFT_LEFT ps2.ButtonReleased(PSB_PAD_LEFT)
 
-#define PS2_R_SELECT ps2.ButtonReleased(PSB_SELECT)
-#define PS2_R_START ps2.ButtonReleased(PSB_START)
 
 #define PS2_R_RIGHT_UP ps2.ButtonReleased(PSB_GREEN)
 #define PS2_R_RIGHT_RIGHT ps2.ButtonReleased(PSB_RED)
@@ -85,7 +93,15 @@ int origin_left_y;
 int origin_right_y;
 
 void setup(void) { // ZL
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, LOW);
+
   setup_motor();
+
+#if MOTOR_DRIVER_RX_TEST_MODE
+  // 通信验证模式下，不初始化 PS2 和舵机，避免它们影响串口发包测试。
+  // 此模式只验证：Arduino 主板是否能持续把速度命令发到电机驱动板。
+#else
   setup_uart(); // 初始化串口
   setup_ps2();
   setup_servo();
@@ -94,12 +110,18 @@ void setup(void) { // ZL
   origin_right_x = PS2_RIGHT_X_RAW;
   origin_left_y = PS2_LEFT_Y_RAW;
   origin_right_y = PS2_RIGHT_Y_RAW;
+#endif
 }
 
 void loop(void) {
+#if MOTOR_DRIVER_RX_TEST_MODE
+  loop_key();              // 通信验证模式：只执行电机心跳发包
+  delay(5);
+#else
   loop_ps2();              // 循环检测手柄状态
   loop_key();
   loop_servo();
-  loop_speed_debug();  // 可选：查看编码器实时速度，默认不输出，见 z_loop.ino
+  loop_speed_debug();      // 可选：查看编码器实时速度，默认不输出，见 z_loop.ino
   delay(10);
+#endif
 }

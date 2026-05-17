@@ -16,8 +16,14 @@ typedef enum motor_type_t {
 extern int Encoder_Offset[4];
 extern int Encoder_Now[4];
 extern float g_Speed[4];
+extern float g_mtep_counts_per_second[4];
+extern unsigned long g_mtep_last_update_ms;
 extern uint8_t g_recv_flag;
 extern uint8_t g_recv_buff_deal[];
+extern uint32_t g_motor_rx_packet_count;
+extern uint8_t g_motor_rx_last_type;  // 0=none, 1=MAll, 2=MTEP, 3=MSPD
+extern unsigned long g_motor_rx_last_ms;
+extern char g_motor_rx_last_packet[];
 
 void send_motor_type(motor_type_t data);
 void send_motor_deadzone(uint16_t data);
