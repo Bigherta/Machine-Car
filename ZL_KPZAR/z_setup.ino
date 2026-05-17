@@ -3,6 +3,8 @@
 ****************************************************************************/
 
 bool g_ps2_link_ok = false;
+extern unsigned long g_ps2_last_read_ms;
+extern bool g_ps2_frame_ready;
 
 void setup_uart(void) {
   uart_init(115200);

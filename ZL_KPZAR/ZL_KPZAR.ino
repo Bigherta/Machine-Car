@@ -100,5 +100,6 @@ void loop(void) {
   loop_ps2();              // 循环检测手柄状态
   loop_key();
   loop_servo();
+  loop_speed_debug();  // 可选：查看编码器实时速度，默认不输出，见 z_loop.ino
   delay(10);
 }

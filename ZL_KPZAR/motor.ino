@@ -13,6 +13,9 @@
 
 // Motor configuration copied from USART example.
 #define MOTOR_TYPE 1
+
+// 1=上传总编码值 MAll；2=上传 10ms 编码增量 MTEP；3=上传实时速度 MSPD。
+// 这里选择 3，让驱动板持续回传四个轮子的实时速度，解析后存入 g_Speed[0..3]。
 #define UPLOAD_DATA 3
 
 static int motor_clamp_speed(int speed) {
@@ -115,13 +118,16 @@ void setup_motor(void) {
   delay(100);
   motor_configure_module();
 
+  // 上电后立即明确发送 0 速，防止驱动板沿用旧状态或例程默认加速启动。
+  Contrl_Speed(0, 0, 0, 0);
+  delay(20);
 }
 
 void motor_update(void) {
   Motor_USART_Recieve();
   if (g_recv_flag == 1) {
     g_recv_flag = 0;
-    Deal_data_real();
+    Deal_data_real();   // 若收到 $MSPD:...#，这里会刷新 g_Speed[0..3]
   }
 }
 
@@ -149,3 +155,23 @@ void motor_set_wheels(int lf, int rf, int lr, int rr) {
 }
 
 void motor_stop_all(void) { motor_set_wheels(0, 0, 0, 0); }
+
+
+// 读取编码器驱动板上传的四轮实时速度。
+// 对应关系：0=左前，1=右前，2=左后，3=右后。
+// 单位取决于驱动板固件的 MSPD 上传定义；通常与 send_wheel_diameter() 配置有关。
+void motor_get_wheel_speed(float *lf, float *rf, float *lr, float *rr) {
+  if (lf) *lf = g_Speed[0];
+  if (rf) *rf = g_Speed[1];
+  if (lr) *lr = g_Speed[2];
+  if (rr) *rr = g_Speed[3];
+}
+
+static float motor_abs_float(float value) {
+  return value >= 0 ? value : -value;
+}
+
+float motor_get_average_abs_speed(void) {
+  return (motor_abs_float(g_Speed[0]) + motor_abs_float(g_Speed[1]) +
+          motor_abs_float(g_Speed[2]) + motor_abs_float(g_Speed[3])) / 4.0;
+}

@@ -1,3 +1,7 @@
+extern bool g_ps2_link_ok;
+extern unsigned long g_ps2_last_read_ms;
+extern bool g_ps2_frame_ready;
+
 const int MOTOR_SPEED_MIN = -1000;
 const int MOTOR_SPEED_MAX = 1000;
 
@@ -70,6 +74,32 @@ static int current_lr = 0;
 static int current_rr = 0;
 
 static bool loopkey_gear_shift_armed = false;
+
+// ================= 安全启动设置 =================
+// 1：上电后电机保持停止，按 START 后才允许摇杆控制；按 SELECT 立即锁车停止。
+// 0：只要 PS2 连接成功，就直接允许摇杆控制。
+#define MOTOR_START_ARM_ENABLE 1
+
+const unsigned long MOTOR_STOP_REFRESH_MS = 80;
+const unsigned long PS2_FRAME_TIMEOUT_MS = 150;
+static bool loopkey_motor_armed = false;
+static unsigned long loopkey_last_stop_command_ms = 0;
+
+static void loopkey_stop_motor_safely(void) {
+  current_lf = 0;
+  current_rf = 0;
+  current_lr = 0;
+  current_rr = 0;
+
+  unsigned long now_ms = millis();
+  if (loopkey_last_stop_command_ms == 0 ||
+      now_ms - loopkey_last_stop_command_ms >= MOTOR_STOP_REFRESH_MS) {
+    motor_stop_all();
+    loopkey_last_stop_command_ms = now_ms;
+  }
+
+  motor_update();
+}
 
 static int loopkey_clamp_motor_speed(int speed) {
   if (speed < MOTOR_SPEED_MIN) return MOTOR_SPEED_MIN;
@@ -177,6 +207,40 @@ static void loopkey_update_gear_by_right_y(void) {
 }
 
 void loop_key(void) {
+  // 先处理一小段电机驱动板回传数据。注意底层已经做了“限时/限字节”，不会长期卡住 PS2 控制。
+  motor_update();
+
+  // PS2 未连接成功，或主循环超过一段时间没有拿到新的 PS2 帧时，立即停车。
+  // 这能避免“手柄断帧后一直沿用上一条摇杆速度命令”。
+  if (!g_ps2_link_ok || !g_ps2_frame_ready ||
+      (millis() - g_ps2_last_read_ms > PS2_FRAME_TIMEOUT_MS)) {
+    loopkey_motor_armed = false;
+    loopkey_stop_motor_safely();
+    return;
+  }
+
+  // SELECT：紧急停止并重新上锁。
+  if (ps2.ButtonPressed(PSB_SELECT)) {
+    loopkey_motor_armed = false;
+    loopkey_stop_motor_safely();
+    return;
+  }
+
+#if MOTOR_START_ARM_ENABLE
+  // START：解锁电机控制。上电后必须按一次 START，小车才会响应摇杆。
+  if (ps2.ButtonPressed(PSB_START)) {
+    loopkey_motor_armed = true;
+    loopkey_gear_shift_armed = true;
+  }
+
+  if (!loopkey_motor_armed) {
+    loopkey_stop_motor_safely();
+    return;
+  }
+#else
+  loopkey_motor_armed = true;
+#endif
+
   // ===== 按右摇杆Y选择挡位 =====
   loopkey_update_gear_by_right_y();
 
@@ -230,6 +294,13 @@ void loop_key(void) {
   target_lr = loopkey_clamp_motor_speed(loopkey_apply_rear_zmotor_scale(target_lr));
   target_rr = loopkey_clamp_motor_speed(loopkey_apply_rear_zmotor_scale(target_rr));
   
+  // ===== 摇杆回中：立即发送 0 速，而不是慢慢减速 =====
+  // 这样可以确认“回正 = 停车命令”真的发给了电机驱动板，避免驱动板保持上一条速度。
+  if (target_lf == 0 && target_rf == 0 && target_lr == 0 && target_rr == 0) {
+    loopkey_stop_motor_safely();
+    return;
+  }
+
   // ===== 平滑过渡 =====
   current_lf = loopkey_approach_speed(current_lf, target_lf);
   current_rf = loopkey_approach_speed(current_rf, target_rf);
@@ -238,6 +309,7 @@ void loop_key(void) {
 
   // ===== 输出到四个轮子 =====
   motor_set_wheels(current_lf, current_rf, current_lr, current_rr);
+  loopkey_last_stop_command_ms = 0;
   motor_update();
 
   delay(10);

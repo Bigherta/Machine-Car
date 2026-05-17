@@ -120,19 +120,22 @@ void Deal_Control_Rxtemp(uint8_t rxtemp) {
     if (rxtemp == '#') {
       start_flag = 0;
       step = 0;
-      g_recv_flag = 1;
 
+      // 只有收到完整且合法的编码器/速度反馈包，才置位 g_recv_flag。
+      // 这样可以避免无效串口字符导致 Deal_data_real() 重复解析旧数据。
       if (strncmp("MAll:", (char *)g_recv_buff, 5) == 0 ||
           strncmp("MTEP:", (char *)g_recv_buff, 5) == 0 ||
           strncmp("MSPD:", (char *)g_recv_buff, 5) == 0) {
         if (isValidNumbers((char *)g_recv_buff + 5)) {
           memcpy(g_recv_buff_deal, g_recv_buff, RXBUFF_LEN);
+          g_recv_flag = 1;
         }
       } else {
         memset(g_recv_buff, 0, RXBUFF_LEN);
       }
     } else {
-      if (step > RXBUFF_LEN) {
+      // 预留一个 '\0' 位置，防止接收异常长数据时越界。
+      if (step >= RXBUFF_LEN - 1) {
         start_flag = 0;
         step = 0;
         memset(g_recv_buff, 0, RXBUFF_LEN);
@@ -159,6 +162,7 @@ void Deal_data_real(void) {
     char mystr_temp[4][10] = {'\0'};
     splitString(strArray, (char *)data, ", ");
     for (int i = 0; i < 4; i++) {
+      if (strArray[i] == NULL) return;
       strcpy(mystr_temp[i], strArray[i]);
       Encoder_Now[i] = atoi(mystr_temp[i]);
     }
@@ -173,6 +177,7 @@ void Deal_data_real(void) {
     char mystr_temp[4][10] = {'\0'};
     splitString(strArray, (char *)data, ", ");
     for (int i = 0; i < 4; i++) {
+      if (strArray[i] == NULL) return;
       strcpy(mystr_temp[i], strArray[i]);
       Encoder_Offset[i] = atoi(mystr_temp[i]);
     }
@@ -187,6 +192,7 @@ void Deal_data_real(void) {
     char mystr_temp[4][10] = {'\0'};
     splitString(strArray, (char *)data, ", ");
     for (int i = 0; i < 4; i++) {
+      if (strArray[i] == NULL) return;
       strcpy(mystr_temp[i], strArray[i]);
       g_Speed[i] = atof(mystr_temp[i]);
     }
