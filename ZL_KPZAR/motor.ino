@@ -13,7 +13,7 @@
 
 // Motor configuration copied from USART example.
 #define MOTOR_TYPE 1
-#define UPLOAD_DATA 0
+#define UPLOAD_DATA 3
 
 static int motor_clamp_speed(int speed) {
   if (speed < -1000)
