@@ -29,10 +29,10 @@ const int SERVO_MAX_US_PER[6] = { 2400, 2500, 2400, 2400, 2600, 2400 };
 const int TARGET_STEP_US = 16;
 // 多久允许更新一次目标值
 const unsigned long TARGET_UPDATE_MS = 10;
-// 舵机每次逼近目标值的步长（降为原来的 80%）
-const int MOVE_STEP_US = 20;
-// 每个舵机的逼近步长（微秒），按 80% 缩放（第5号舵机单独为 12us/步）
-const int MOVE_STEP_US_PER[6] = {20, 20, 20, 20, 20, 12};
+// 舵机每次逼近目标值的步长（降为原来的 60%）
+const int MOVE_STEP_US = 12;
+// 每个舵机的逼近步长（微秒），按 60% 缩放（第5号舵机单独为 7us/步）
+const int MOVE_STEP_US_PER[6] = {12, 12, 12, 12, 12, 7};
 // 多久真正写一次舵机
 const unsigned long MOVE_UPDATE_MS = 10;
 

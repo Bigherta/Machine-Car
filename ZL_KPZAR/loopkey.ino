@@ -129,12 +129,12 @@ const int MOTOR_SPEED_MAX = 1000;
 const int JOYSTICK_DEADZONE = 8;
 const int JOYSTICK_MAX_ABS = 128;
 
-const int THROTTLE_MIN_EFFECTIVE = 100;
-const int STRAFE_MIN_EFFECTIVE   = 100;
-const int ROTATE_MIN_EFFECTIVE   = 220;
+const int THROTTLE_MIN_EFFECTIVE = 180;  // v15: 提高起步目标，避免轻推时输出太小
+const int STRAFE_MIN_EFFECTIVE   = 180;  // v15: 提高左右平移起步目标
+const int ROTATE_MIN_EFFECTIVE   = 260;  // v15: 原地旋转需要更高起步力
 
-const int MOTOR_SLEW_ACCEL_STEP = 30;
-const int MOTOR_SLEW_DECEL_STEP = 70;
+const int MOTOR_SLEW_ACCEL_STEP = 90;    // v15: 加快从 0 到目标值的爬升速度
+const int MOTOR_SLEW_DECEL_STEP = 130;   // v15: 松杆/反向时更快释放上一状态
 
 const int THROTTLE_GAIN_NUM = 10;
 const int THROTTLE_GAIN_DEN = 10;
@@ -152,8 +152,8 @@ const int TRANSLATION_IGNORE_THRESHOLD = 120;
 // 0 = 低速挡，1 = 中速挡，2 = 高速挡
 static int g_speed_gear = 1;
 
-const int LOW_GEAR_PERCENT  = 5;
-const int MID_GEAR_PERCENT  = 30;
+const int LOW_GEAR_PERCENT  = 12;        // v15: 低速挡也给足最低起步量
+const int MID_GEAR_PERCENT  = 45;        // v15: 默认中速挡从 30% 提高到 45%
 const int HIGH_GEAR_PERCENT = 100;
 
 // 右摇杆Y轴三挡逻辑

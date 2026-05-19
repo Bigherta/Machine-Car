@@ -71,10 +71,10 @@ static int last_rr = 0;
 // P 增益，单位约为 PWM/(counts/s)。
 // v11 略微提高到 0.12：让速度跟随更积极。
 // 若小车抖动/忽快忽慢，减小到 0.08 或 0.06；若修正太弱，可小步增大到 0.15。
-#define MTEP_P_GAIN 0.12f
+#define MTEP_P_GAIN 0.14f   // v15: 行驶 P 闭环稍微更积极，起步时补偿更快
 
 // 单次 P 修正的最大幅度，防止某一路卡住时补偿过猛。
-#define MTEP_MAX_CORRECTION_PWM 300.0f
+#define MTEP_MAX_CORRECTION_PWM 320.0f
 
 // ================= v11：最小有效 PWM / 死区补偿 =================
 // 现象：PWM 太小时电机不一定能克服静摩擦，编码器 MTEP 会一直为 0。
@@ -83,15 +83,15 @@ static int last_rr = 0;
 #define MTEP_DEADZONE_COMP_ENABLE 1
 
 // 普通轮子的最小驱动 PWM。若低速太冲，降到 160；若低速仍不动，升到 220。
-#define MTEP_MIN_DRIVE_PWM_NORMAL 190
+#define MTEP_MIN_DRIVE_PWM_NORMAL 230   // v15: 普通轮最低有效 PWM 提高，减少磨蹭起步
 
 // 第三路/左后轮之前实测启动门槛偏高。默认给一个温和补偿。
 // 如果你暂时不想特别处理第三路，可把它改成和 NORMAL 一样，例如 190。
-#define MTEP_MIN_DRIVE_PWM_LEFT_REAR 320
+#define MTEP_MIN_DRIVE_PWM_LEFT_REAR 360  // v15: 第三路起步门槛偏高，继续给一点补偿
 
 // 当摇杆目标很小的时候，如果直接跳到最小 PWM 会显得突兀。
 // 这里给一个软启动：目标 PWM 小于该值时，按比例降低最小补偿。
-#define MTEP_DEADZONE_SOFT_RANGE_PWM 220
+#define MTEP_DEADZONE_SOFT_RANGE_PWM 160  // v15: 更快达到最低有效 PWM，但仍保留软启动
 
 // 超过这个时间没有收到新的 MTEP，就退回普通 PWM，不做闭环修正。
 #define MTEP_FEEDBACK_TIMEOUT_MS 120
