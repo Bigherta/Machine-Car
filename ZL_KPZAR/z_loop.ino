@@ -23,7 +23,7 @@ void loop_ps2(void) {
 // v9 默认 motor.ino 中 UPLOAD_DATA=2，驱动板上传 $MTEP:...#。
 // MTEP 是 10ms 编码器增量，程序已换算为 counts/s。
 // 注意：Serial 同时接到电机驱动板，调试字符串也会发给驱动板；若控制异常请改为 0。
-#define SPEED_DEBUG_TO_SERIAL 1
+#define SPEED_DEBUG_TO_SERIAL 0
 const unsigned long SPEED_DEBUG_INTERVAL_MS = 300;
 
 void motor_get_wheel_mtep_cps(float *lf, float *rf, float *lr, float *rr);
@@ -48,14 +48,14 @@ void loop_speed_debug(void) {
 
   unsigned long age_ms = (g_motor_rx_packet_count == 0) ? 999999UL : (millis() - g_motor_rx_last_ms);
 
-  Serial.print("RX cnt=");
+  Serial.print(F("RX cnt="));
   Serial.print(g_motor_rx_packet_count);
-  Serial.print(" last=");
+  Serial.print(F(" last="));
   Serial.print(motor_rx_type_name(g_motor_rx_last_type));
-  Serial.print(" age_ms=");
+  Serial.print(F(" age_ms="));
   Serial.print(age_ms);
 
-  Serial.print(" | MTEP=");
+  Serial.print(F(" | MTEP="));
   Serial.print(Encoder_Offset[0]);
   Serial.print(',');
   Serial.print(Encoder_Offset[1]);
@@ -67,7 +67,7 @@ void loop_speed_debug(void) {
   float cps_lf, cps_rf, cps_lr, cps_rr;
   motor_get_wheel_mtep_cps(&cps_lf, &cps_rf, &cps_lr, &cps_rr);
 
-  Serial.print(" | cps=");
+  Serial.print(F(" | cps="));
   Serial.print(cps_lf);
   Serial.print(',');
   Serial.print(cps_rf);
@@ -76,7 +76,7 @@ void loop_speed_debug(void) {
   Serial.print(',');
   Serial.print(cps_rr);
 
-  Serial.print(" | avg_abs_cps=");
+  Serial.print(F(" | avg_abs_cps="));
   Serial.print(motor_get_average_abs_mtep_cps());
 
   float target_cps[4];
@@ -88,43 +88,41 @@ void loop_speed_debug(void) {
   motor_get_mtep_p_loop_debug(target_cps, feedback_cps, base_pwm, output_pwm,
                               &loop_active, &feedback_fresh);
 
-  Serial.print(" | Ploop=");
-  Serial.print(loop_active ? "ON" : "OFF");
-  Serial.print(feedback_fresh ? ",fresh" : ",stale");
+  Serial.print(F(" | Ploop="));
+  Serial.print(loop_active ? F("ON") : F("OFF"));
+  Serial.print(feedback_fresh ? F(",fresh") : F(",stale"));
 
   int hold_pwm[4];
   bool hold_active = false;
   bool hold_fresh = false;
   motor_get_mtep_hold_debug(hold_pwm, &hold_active, &hold_fresh);
 
-  Serial.print(" | Hold=");
-  Serial.print(hold_active ? "ON" : "OFF");
-  Serial.print(hold_fresh ? ",fresh" : ",stale");
-  Serial.print(" | hold_pwm=");
+  Serial.print(F(" | Hold="));
+  Serial.print(hold_active ? F("ON") : F("OFF"));
+  Serial.print(hold_fresh ? F(",fresh") : F(",stale"));
+  Serial.print(F(" | hold_pwm="));
   Serial.print(hold_pwm[0]); Serial.print(',');
   Serial.print(hold_pwm[1]); Serial.print(',');
   Serial.print(hold_pwm[2]); Serial.print(',');
   Serial.print(hold_pwm[3]);
 
-  Serial.print(" | base_pwm=");
+  Serial.print(F(" | base_pwm="));
   Serial.print(base_pwm[0]); Serial.print(',');
   Serial.print(base_pwm[1]); Serial.print(',');
   Serial.print(base_pwm[2]); Serial.print(',');
   Serial.print(base_pwm[3]);
 
-  Serial.print(" | out_pwm=");
+  Serial.print(F(" | out_pwm="));
   Serial.print(output_pwm[0]); Serial.print(',');
   Serial.print(output_pwm[1]); Serial.print(',');
   Serial.print(output_pwm[2]); Serial.print(',');
   Serial.print(output_pwm[3]);
 
-  Serial.print(" | target_cps=");
+  Serial.print(F(" | target_cps="));
   Serial.print(target_cps[0]); Serial.print(',');
   Serial.print(target_cps[1]); Serial.print(',');
   Serial.print(target_cps[2]); Serial.print(',');
   Serial.print(target_cps[3]);
 
-  Serial.print(" | raw=");
-  Serial.println(g_motor_rx_last_packet);
 #endif
 }

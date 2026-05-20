@@ -26,15 +26,17 @@ const int SERVO_MIN_US_PER[6] = { 600, 600, 600, 600, 600, 600 };
 const int SERVO_MAX_US_PER[6] = { 2400, 2500, 2400, 2400, 2600, 2400 };
 
 // 按住按键时，每次目标值变化的幅度（降为原来的 80%）
-const int TARGET_STEP_US = 16;
+const int TARGET_STEP_US = 8;
 // 多久允许更新一次目标值
-const unsigned long TARGET_UPDATE_MS = 10;
-// 舵机每次逼近目标值的步长（降为原来的 60%）
-const int MOVE_STEP_US = 12;
-// 每个舵机的逼近步长（微秒），按 60% 缩放（第5号舵机单独为 7us/步）
-const int MOVE_STEP_US_PER[6] = {12, 12, 12, 12, 12, 7};
+const unsigned long TARGET_UPDATE_MS = 15;
+// 舵机每次逼近目标值的步长（更慢）
+const int MOVE_STEP_US = 8;
+// 每个舵机的逼近步长（微秒），整体再减小（第5号舵机单独为 5us/步）
+const int MOVE_STEP_US_PER[6] = {8, 8, 8, 8, 8, 5};
 // 多久真正写一次舵机
 const unsigned long MOVE_UPDATE_MS = 10;
+// 每个舵机的移动更新间隔（毫秒），第5号舵机调小为 5ms
+const unsigned long MOVE_UPDATE_MS_PER[6] = {10, 10, 10, 10, 10, 5};
 
 int servoTargetUs[6] = { SERVO_CENTER_US, SERVO_CENTER_US, SERVO_CENTER_US,
                          SERVO_CENTER_US, SERVO_CENTER_US, SERVO_CENTER_US };
@@ -43,7 +45,7 @@ int servoCurrentUs[6] = { SERVO_CENTER_US, SERVO_CENTER_US, SERVO_CENTER_US,
                           SERVO_CENTER_US, SERVO_CENTER_US, SERVO_CENTER_US };
 
 unsigned long lastTargetUpdate = 0;
-unsigned long lastMoveUpdate = 0;
+unsigned long lastMoveUpdatePer[6] = {0, 0, 0, 0, 0, 0};
 bool servo_targets_centered = true;
 
 void centerAllServos(bool writeNow) {
@@ -84,12 +86,12 @@ void updateOneServo(uint8_t index) {
 }
 
 void updateServosSmoothly() {
-  if (millis() - lastMoveUpdate < MOVE_UPDATE_MS)
-    return;
-  lastMoveUpdate = millis();
-
+  unsigned long now = millis();
   for (int i = 0; i < 6; i++) {
-    updateOneServo(i);
+    if (now - lastMoveUpdatePer[i] >= MOVE_UPDATE_MS_PER[i]) {
+      lastMoveUpdatePer[i] = now;
+      updateOneServo(i);
+    }
   }
 }
 

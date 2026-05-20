@@ -23,7 +23,6 @@ extern uint8_t g_recv_buff_deal[];
 extern uint32_t g_motor_rx_packet_count;
 extern uint8_t g_motor_rx_last_type;  // 0=none, 1=MAll, 2=MTEP, 3=MSPD
 extern unsigned long g_motor_rx_last_ms;
-extern char g_motor_rx_last_packet[];
 
 void send_motor_type(motor_type_t data);
 void send_motor_deadzone(uint16_t data);
