@@ -152,7 +152,7 @@ const int TRANSLATION_IGNORE_THRESHOLD = 120;
 // 0 = 低速挡，1 = 中速挡，2 = 高速挡
 static int g_speed_gear = 1;
 
-const int LOW_GEAR_PERCENT  = 12;        // v15: 低速挡也给足最低起步量
+const int LOW_GEAR_PERCENT  = 20;        // v15: 低速挡也给足最低起步量
 const int MID_GEAR_PERCENT  = 45;        // v15: 默认中速挡从 30% 提高到 45%
 const int HIGH_GEAR_PERCENT = 100;
 

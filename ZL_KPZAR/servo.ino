@@ -32,7 +32,7 @@ const unsigned long TARGET_UPDATE_MS = 15;
 // 舵机每次逼近目标值的步长（更慢）
 const int MOVE_STEP_US = 8;
 // 每个舵机的逼近步长（微秒），整体再减小（第5号舵机单独为 5us/步）
-const int MOVE_STEP_US_PER[6] = {8, 8, 8, 8, 8, 5};
+const int MOVE_STEP_US_PER[6] = {16, 16, 16, 16, 16, 5};
 // 多久真正写一次舵机
 const unsigned long MOVE_UPDATE_MS = 10;
 // 每个舵机的移动更新间隔（毫秒），第5号舵机调小为 5ms
