@@ -27,6 +27,8 @@ void motor_set_wheels_mtep_p_loop(int lf, int rf, int lr, int rr);
 void motor_hold_zero_speed_mtep(void);
 void motor_reset_hold_integral(void);
 void motor_reconfigure_and_set_wheels(int lf, int rf, int lr, int rr);
+void motor_get_wheel_mtep_cps(float *lf, float *rf, float *lr, float *rr);
+bool motor_is_mtep_feedback_fresh(void);
 
 // ================= 电机驱动板持续接收验证 =================
 // 目的：绕开 PS2 和舵机，只验证 Arduino 主板是否能持续向电机驱动板发送 $pwm 指令。
@@ -148,6 +150,28 @@ const int ROTATE_GAIN_DEN = 10;
 const int ROTATE_PRIORITY_THRESHOLD    = 140;
 const int TRANSLATION_IGNORE_THRESHOLD = 120;
 
+// ================= v16：编码器直线保持 / 防自转 =================
+// 作用：当前进、后退、左右平移且没有主动旋转输入时，
+// 用四轮 MTEP 反馈估计车身是否在自转，并自动叠加一个反向旋转修正量。
+// 这不会改变你已经调好的摇杆映射，只是在“纯平移”时补偿跑偏。
+#define STRAIGHT_HOLD_ENABLE 1
+
+// 只有平移目标足够明显时才启用，避免摇杆微小漂移触发修正。
+const int STRAIGHT_HOLD_TRANSLATION_MIN_PWM = 80;
+
+// 估计到的自转速度小于该值时认为是编码器抖动，不补偿。单位：counts/s。
+const float STRAIGHT_HOLD_YAW_CPS_DEADBAND = 120.0f;
+
+// 自转速度 -> 旋转 PWM 修正量的比例。若修正太弱可升到 0.06~0.08；
+// 若左右摇摆/过度纠正，可降到 0.02~0.03。
+const float STRAIGHT_HOLD_KP = 0.04f;
+
+// 最大旋转修正，防止某个轮子打滑/编码器异常时补偿过猛。
+const int STRAIGHT_HOLD_MAX_CORRECTION = 140;
+
+// 如果直线保持开启后偏得更厉害，把 -1 改成 1。
+#define STRAIGHT_HOLD_CORRECTION_SIGN -1
+
 // ================= 挡位设置 =================
 // 0 = 低速挡，1 = 中速挡，2 = 高速挡
 static int g_speed_gear = 1;
@@ -157,8 +181,8 @@ const int MID_GEAR_PERCENT  = 45;        // v15: 默认中速挡从 30% 提高�
 const int HIGH_GEAR_PERCENT = 100;
 
 // 右摇杆Y轴三挡逻辑
-const int GEAR_HIGH_THRESHOLD = 55;
-const int GEAR_LOW_THRESHOLD  = -55;
+const int GEAR_HIGH_THRESHOLD = 110;
+const int GEAR_LOW_THRESHOLD  = -110;
 
 // 如果你发现右摇杆Y方向和挡位逻辑反了，就把 1 改成 -1
 #define GEAR_AXIS_SIGN -1
@@ -318,6 +342,53 @@ static int loopkey_approach_speed(int current, int target) {
   return target;
 }
 
+static int loopkey_round_float_to_int(float value) {
+  if (value >= 0.0f) return (int)(value + 0.5f);
+  return (int)(value - 0.5f);
+}
+
+static int loopkey_calc_straight_hold_rotate_fix(int throttle, int strafe, int rotate) {
+#if STRAIGHT_HOLD_ENABLE
+  // 用户主动给了旋转输入时，不抢控制权。
+  if (rotate != 0) return 0;
+
+  // 只有“纯平移”时才做直线保持。
+  if (abs(throttle) < STRAIGHT_HOLD_TRANSLATION_MIN_PWM &&
+      abs(strafe) < STRAIGHT_HOLD_TRANSLATION_MIN_PWM) {
+    return 0;
+  }
+
+  if (!motor_is_mtep_feedback_fresh()) return 0;
+
+  float fb_lf, fb_rf, fb_lr, fb_rr;
+  motor_get_wheel_mtep_cps(&fb_lf, &fb_rf, &fb_lr, &fb_rr);
+
+  // 按当前正常混控公式反推出“自转分量”：
+  // target_lf = throttle + strafe + rotate
+  // target_rf = throttle - strafe - rotate
+  // target_lr = throttle - strafe + rotate
+  // target_rr = throttle + strafe - rotate
+  // 因此 yaw_cps ≈ (lf - rf + lr - rr) / 4。
+  float yaw_cps = (fb_lf - fb_rf + fb_lr - fb_rr) / 4.0f;
+
+  if (yaw_cps > -STRAIGHT_HOLD_YAW_CPS_DEADBAND &&
+      yaw_cps <  STRAIGHT_HOLD_YAW_CPS_DEADBAND) {
+    return 0;
+  }
+
+  float correction = (float)STRAIGHT_HOLD_CORRECTION_SIGN * yaw_cps * STRAIGHT_HOLD_KP;
+  if (correction > STRAIGHT_HOLD_MAX_CORRECTION) correction = STRAIGHT_HOLD_MAX_CORRECTION;
+  if (correction < -STRAIGHT_HOLD_MAX_CORRECTION) correction = -STRAIGHT_HOLD_MAX_CORRECTION;
+
+  return loopkey_round_float_to_int(correction);
+#else
+  (void)throttle;
+  (void)strafe;
+  (void)rotate;
+  return 0;
+#endif
+}
+
 static void loopkey_update_gear_by_right_y(void) {
   int gear_axis = GEAR_AXIS_SIGN * loopkey_apply_deadzone(PS2_RIGHT_Y);
 
@@ -374,6 +445,11 @@ void loop_key(void) {
   throttle = throttle * THROTTLE_GAIN_NUM / THROTTLE_GAIN_DEN;
   rotate   = rotate   * ROTATE_GAIN_NUM   / ROTATE_GAIN_DEN;
   strafe   = strafe   * STRAFE_GAIN_NUM   / STRAFE_GAIN_DEN;
+
+  // v16：纯前进/后退/左右平移时，自动压制由轮速不一致造成的自转趋势。
+  // 注意：这里是在混控前给 rotate 叠加一个小修正，不改变你当前的摇杆轴映射。
+  rotate = loopkey_clamp_motor_speed(rotate +
+           loopkey_calc_straight_hold_rotate_fix(throttle, strafe, rotate));
 
   int target_lf, target_rf, target_lr, target_rr;
 

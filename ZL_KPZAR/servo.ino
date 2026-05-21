@@ -29,10 +29,19 @@ const int SERVO_MAX_US_PER[6] = { 2400, 2500, 2400, 2400, 2600, 2400 };
 const int TARGET_STEP_US = 8;
 // 多久允许更新一次目标值
 const unsigned long TARGET_UPDATE_MS = 15;
-// 舵机每次逼近目标值的步长（更慢）
+// 舵机每次逼近目标值的默认步长；当前实际步长由下面两套 PER 数组动态选择。
 const int MOVE_STEP_US = 8;
-// 每个舵机的逼近步长（微秒），整体再减小（第5号舵机单独为 5us/步）
-const int MOVE_STEP_US_PER[6] = {16, 16, 16, 16, 16, 5};
+
+// 单按键微调时使用：更小步长，更细腻
+const int MOVE_STEP_SINGLE_KEY_US_PER[6] = {8, 8, 8, 8, 8, 5};
+
+// 指定组合键触发预设动作时使用：更大步长，更快到达预设位置
+const int MOVE_STEP_COMBO_KEY_US_PER[6]  = {12, 12, 12, 12, 12, 5};
+
+const uint8_t SERVO_STEP_SINGLE_KEY = 0;
+const uint8_t SERVO_STEP_COMBO_KEY  = 1;
+uint8_t servoMoveStepMode = SERVO_STEP_SINGLE_KEY;
+
 // 多久真正写一次舵机
 const unsigned long MOVE_UPDATE_MS = 10;
 // 每个舵机的移动更新间隔（毫秒），第5号舵机调小为 5ms
@@ -68,8 +77,20 @@ void clampAllTargets() {
   }
 }
 
+int getServoMoveStep(uint8_t index) {
+  if (index >= 6) {
+    return MOVE_STEP_US;
+  }
+
+  if (servoMoveStepMode == SERVO_STEP_COMBO_KEY) {
+    return MOVE_STEP_COMBO_KEY_US_PER[index];
+  }
+
+  return MOVE_STEP_SINGLE_KEY_US_PER[index];
+}
+
 void updateOneServo(uint8_t index) {
-  int step = MOVE_STEP_US_PER[index];
+  int step = getServoMoveStep(index);
   if (servoCurrentUs[index] < servoTargetUs[index]) {
     servoCurrentUs[index] += step;
     if (servoCurrentUs[index] > servoTargetUs[index]) {
@@ -129,29 +150,36 @@ void handlePadControl() {
     bool pad_circle = ps2.Button(PSB_CIRCLE);
     // 组合键：同时按下 L1 + R1 时复位，且不触发单独 L1/R1 效果
     if (l1Pressed && r1Pressed) {
+      servoMoveStepMode = SERVO_STEP_COMBO_KEY;
       move_to_determined_pos(1500, 780, 1500, 1500, 1500);
       return;
     }
     if (l2Pressed && r2Pressed) {
+      servoMoveStepMode = SERVO_STEP_COMBO_KEY;
       move_to_determined_pos(1500, 2080, 1950, 2400, 1500);
       return;
     }
     if (l1Pressed && l2Pressed) {
+      servoMoveStepMode = SERVO_STEP_COMBO_KEY;
       move_to_determined_pos(1500, 1500, 1650, 2200, 1500);
     }
     if (pad_down && pad_cross) {
+      servoMoveStepMode = SERVO_STEP_COMBO_KEY;
       move_to_determined_pos(1500, 1800, 1850, 2400, 1500);
       return;
     }
     if (pad_right && pad_square) {
+      servoMoveStepMode = SERVO_STEP_COMBO_KEY;
       move_to_determined_pos(1500, 1000, 2200, 1400, 1500);
       return;
     }
     if (pad_up && pad_triangle) {
+      servoMoveStepMode = SERVO_STEP_COMBO_KEY;
       move_to_determined_pos(1500, 1100, 1500, 1800, 1500);
       return;
     }
     if (pad_left && pad_circle) {
+      servoMoveStepMode = SERVO_STEP_COMBO_KEY;
       move_to_determined_pos(1500, 1900, 2300, 2000, 1500);
       return;
     }
@@ -217,6 +245,7 @@ void handlePadControl() {
 
     clampAllTargets();
     if (changed) {
+      servoMoveStepMode = SERVO_STEP_SINGLE_KEY;
       servo_targets_centered = false;
     }
   }

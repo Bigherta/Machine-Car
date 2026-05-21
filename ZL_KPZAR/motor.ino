@@ -140,6 +140,7 @@ void motor_hold_zero_speed_mtep(void);
 void motor_reset_hold_integral(void);
 void motor_get_wheel_mtep_cps(float *lf, float *rf, float *lr, float *rr);
 static bool motor_mtep_feedback_is_fresh(void);
+bool motor_is_mtep_feedback_fresh(void);
 static int motor_calc_p_loop_pwm(int index, int base_pwm, float feedback_cps, bool feedback_fresh);
 static int motor_apply_deadzone_compensation(int index, int base_pwm, int output_pwm);
 static int motor_get_min_drive_pwm_for_wheel(int index);
@@ -450,6 +451,10 @@ static bool motor_mtep_feedback_is_fresh(void) {
   if (g_mtep_last_update_ms == 0) return false;
   if (g_motor_rx_last_type != 2) return false;
   return (millis() - g_mtep_last_update_ms) <= MTEP_FEEDBACK_TIMEOUT_MS;
+}
+
+bool motor_is_mtep_feedback_fresh(void) {
+  return motor_mtep_feedback_is_fresh();
 }
 
 static int motor_calc_p_loop_pwm(int index, int base_pwm, float feedback_cps, bool feedback_fresh) {
