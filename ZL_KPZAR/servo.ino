@@ -156,16 +156,16 @@ void handlePadControl() {
     }
     if (l2Pressed && r2Pressed) {
       servoMoveStepMode = SERVO_STEP_COMBO_KEY;
-      move_to_determined_pos(1500, 2080, 1950, 2400, 1500);
+      move_to_determined_pos(1500, 2280, 2500, 2400, 1500);
       return;
     }
     if (l1Pressed && l2Pressed) {
       servoMoveStepMode = SERVO_STEP_COMBO_KEY;
-      move_to_determined_pos(1500, 1500, 1650, 2200, 1500);
+      move_to_determined_pos(1500, 1500, 1750, 2150, 1500);
     }
     if (pad_down && pad_cross) {
       servoMoveStepMode = SERVO_STEP_COMBO_KEY;
-      move_to_determined_pos(1500, 1800, 1850, 2400, 1500);
+      move_to_determined_pos(1500, 1800, 2000, 2500, 1500);
       return;
     }
     if (pad_right && pad_square) {
